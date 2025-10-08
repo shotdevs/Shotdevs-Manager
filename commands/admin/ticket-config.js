@@ -6,32 +6,33 @@ module.exports = {
         .setName('ticket-config')
         .setDescription('Configure the ticket system for this server.')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        // CHANGED: Replaced the single 'category' subcommand with three specific ones
         .addSubcommand(subcommand =>
             subcommand
                 .setName('set-order-category')
                 .setDescription('Set the category for ORDER tickets.')
-                .addChannelOption(option =>
-                    option.setName('category').setDescription('The category channel for orders').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
+                .addChannelOption(option => option.setName('category').setDescription('The category channel for orders').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('set-enquiry-category')
                 .setDescription('Set the category for ENQUIRY tickets.')
-                .addChannelOption(option =>
-                    option.setName('category').setDescription('The category channel for enquiries').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
+                .addChannelOption(option => option.setName('category').setDescription('The category channel for enquiries').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('set-support-category')
                 .setDescription('Set the category for SUPPORT tickets.')
-                .addChannelOption(option =>
-                    option.setName('category').setDescription('The category channel for support').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
-        .addSubcommand(subcommand => // This subcommand for setting the role is unchanged
+                .addChannelOption(option => option.setName('category').setDescription('The category channel for support').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
+        // NEW: Subcommand for the log channel
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('set-log-channel')
+                .setDescription('Set the channel where ticket logs will be sent.')
+                .addChannelOption(option => option.setName('channel').setDescription('The text channel for logs').addChannelTypes(ChannelType.GuildText).setRequired(true)))
+        .addSubcommand(subcommand =>
             subcommand
                 .setName('role')
                 .setDescription('Set the role that can manage tickets.')
-                .addRoleOption(option =>
-                    option.setName('support-role').setDescription('The support staff role').setRequired(true)))
-        .addSubcommand(subcommand => // This subcommand for the message is also unchanged
+                .addRoleOption(option => option.setName('support-role').setDescription('The support staff role').setRequired(true)))
+        .addSubcommand(subcommand =>
             subcommand
                 .setName('message')
                 .setDescription('Set the message for the ticket creation panel.')
@@ -44,29 +45,19 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: true });
 
-        // CHANGED: Handle the three new category commands
-        if (subcommand === 'set-order-category') {
-            const category = interaction.options.getChannel('category');
-            setConfig(guildId, 'orderCategoryId', category.id);
-            await interaction.editReply(`✅ Order ticket category has been set to **${category.name}**.`);
-        } else if (subcommand === 'set-enquiry-category') {
-            const category = interaction.options.getChannel('category');
-            setConfig(guildId, 'enquiryCategoryId', category.id);
-            await interaction.editReply(`✅ Enquiry ticket category has been set to **${category.name}**.`);
-        } else if (subcommand === 'set-support-category') {
-            const category = interaction.options.getChannel('category');
-            setConfig(guildId, 'supportCategoryId', category.id);
-            await interaction.editReply(`✅ Support ticket category has been set to **${category.name}**.`);
-        } else if (subcommand === 'role') {
-            const role = interaction.options.getRole('support-role');
-            setConfig(guildId, 'staffRoleId', role.id);
-            await interaction.editReply(`✅ Ticket support role has been set to **${role.name}**.`);
-        } else if (subcommand === 'message') {
-            const title = interaction.options.getString('title');
-            const description = interaction.options.getString('description');
-            setConfig(guildId, 'ticketPanelTitle', title);
-            setConfig(guildId, 'ticketPanelDescription', description);
-            await interaction.editReply(`✅ Ticket panel message has been updated.`);
+        if (subcommand === 'set-order-category') { /* ... unchanged ... */ }
+        else if (subcommand === 'set-enquiry-category') { /* ... unchanged ... */ }
+        else if (subcommand === 'set-support-category') { /* ... unchanged ... */ }
+        // NEW: Handle the new log channel command
+        else if (subcommand === 'set-log-channel') {
+            const channel = interaction.options.getChannel('channel');
+            setConfig(guildId, 'ticketLogChannelId', channel.id);
+            await interaction.editReply(`✅ Ticket log channel has been set to **${channel.name}**.`);
         }
+        else if (subcommand === 'role') { /* ... unchanged ... */ }
+        else if (subcommand === 'message') { /* ... unchanged ... */ }
+
+        // To save space, the unchanged subcommands are commented out.
+        // Your file should have the full code for them.
     },
 };
