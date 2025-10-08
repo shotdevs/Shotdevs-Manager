@@ -3,13 +3,15 @@ const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 require('dotenv').config();
 
+// Import the new deploy function from our deploy.js file
+const deployCommands = require('./deploy.js');
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
-// --- Command Handler ---
+// --- Command Handler (unchanged) ---
 client.commands = new Collection();
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
-
 for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -22,10 +24,9 @@ for (const folder of commandFolders) {
     }
 }
 
-// --- Event Handler ---
+// --- Event Handler (unchanged) ---
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-
 for (const file of eventFiles) {
     const filePath = path.join(eventsPath, file);
     const event = require(filePath);
@@ -36,9 +37,25 @@ for (const file of eventFiles) {
     }
 }
 
-client.login(process.env.DISCORD_TOKEN);
+// --- Main Startup Logic ---
+async function start() {
+    try {
+        // Run the deployment script on startup
+        await deployCommands();
 
-// Simple Ready Event
+        // Log in to Discord with your client's token
+        await client.login(process.env.DISCORD_TOKEN);
+
+    } catch (error) {
+        console.error("Failed to start the bot:", error);
+    }
+}
+
+// Call the start function to begin the process
+start();
+
+
+// --- Ready Event ---
 client.once('ready', () => {
-    console.log(`✅ Ready! Logged in as ${client.user.tag}`);
+    console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
 });
