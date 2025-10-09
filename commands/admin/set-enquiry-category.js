@@ -12,7 +12,7 @@ module.exports = {
         const category = interaction.options.getChannel('category');
         setConfig(guildId, 'enquiryCategoryId', category.id);
         // ✅ CORRECT
-await interaction.reply({ content: `✅ Enquiry ticket category set to **${channel.name}**.`, ... });
-        
+await interaction.reply({ content: `✅ Enquiry ticket category set to **${channel.name}**.`, flags: [ 'Ephemeral' ] });
+   
     },
 };
