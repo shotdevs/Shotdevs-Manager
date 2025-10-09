@@ -1,32 +1,41 @@
-const fs = require('node:fs');
+const fs = require('node:fs').promises; // <-- Use the promises version of fs
 const path = require('node:path');
 
 const configPath = path.join(__dirname, 'guild_configs.json');
 
-function readConfigs() {
+// This is now an async function
+async function readConfigs() {
     try {
-        const data = fs.readFileSync(configPath, 'utf8');
+        const data = await fs.readFile(configPath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        return {};
+        // If file doesn't exist or is empty, return empty object
+        if (error.code === 'ENOENT') {
+            return {};
+        }
+        throw error;
     }
 }
 
-function writeConfigs(data) {
-    fs.writeFileSync(configPath, JSON.stringify(data, null, 4));
+// This is now an async function
+async function writeConfigs(data) {
+    await fs.writeFile(configPath, JSON.stringify(data, null, 4));
 }
 
 module.exports = {
-    getConfig: function(guildId) {
-        const configs = readConfigs();
+    // This function is now async
+    getConfig: async function(guildId) {
+        const configs = await readConfigs();
         return configs[guildId] || {};
     },
-    setConfig: function(guildId, key, value) {
-        const configs = readConfigs();
+
+    // This function is now async
+    setConfig: async function(guildId, key, value) {
+        const configs = await readConfigs();
         if (!configs[guildId]) {
             configs[guildId] = {};
         }
         configs[guildId][key] = value;
-        writeConfigs(configs);
+        await writeConfigs(configs);
     }
 };
