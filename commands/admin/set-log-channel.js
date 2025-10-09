@@ -11,6 +11,6 @@ module.exports = {
         const guildId = interaction.guild.id;
         const channel = interaction.options.getChannel('channel');
         setConfig(guildId, 'ticketLogChannelId', channel.id);
-        await interaction.reply({ content: `✅ Ticket log channel has been set to **${channel.name}**.`, ephemeral: true });
-    },
+        await interaction.reply({ content: `✅ Ticket support role has been set to **${role.name}**.`, flags: [ 'Ephemeral' ] });
+       },
 };
