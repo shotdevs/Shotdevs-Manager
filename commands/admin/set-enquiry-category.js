@@ -11,6 +11,8 @@ module.exports = {
         const guildId = interaction.guild.id;
         const category = interaction.options.getChannel('category');
         setConfig(guildId, 'enquiryCategoryId', category.id);
-        await interaction.reply({ content: `✅ Ticket support role has been set to **${role.name}**.`, flags: [ 'Ephemeral' ] });
+        // ✅ CORRECT
+await interaction.reply({ content: `✅ Enquiry ticket category set to **${channel.name}**.`, ... });
+        
     },
 };
