@@ -1,28 +1,62 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const { saveReactionRolePanel } = require('../../configManager');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { saveReactionRolePanel } = require('../../configManager'); // adjust path if needed
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup-reaction-role')
-    .setDescription('Create a reaction role panel in a single command.')
+    .setDescription('Create a reaction role panel.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false)
-    .addChannelOption(option => 
-        option.setName('channel')
-              .setDescription('The channel where the panel will be created.')
-              .setRequired(true))
-    .addStringOption(option => 
-        option.setName('title')
-              .setDescription('The title of the embed.')
-              .setRequired(true))
-    .addStringOption(option => 
-        option.setName('description')
-              .setDescription('The description inside the embed.')
-              .setRequired(true))
-    .addStringOption(option => 
-        option.setName('pairs')
-              .setDescription('Emoji=Role pairs, comma separated. Example: 😀=@Member,😎=@VIP')
-              .setRequired(true)),
+    .addChannelOption(option =>
+      option.setName('channel')
+            .setDescription('Channel where the panel will be created')
+            .addChannelTypes(ChannelType.GuildText)
+            .setRequired(true))
+    .addStringOption(option =>
+      option.setName('title')
+            .setDescription('Embed title')
+            .setRequired(true))
+    .addStringOption(option =>
+      option.setName('description')
+            .setDescription('Embed description')
+            .setRequired(true))
+    // Pair 1
+    .addRoleOption(option =>
+      option.setName('role1')
+            .setDescription('Select the first role')
+            .setRequired(true))
+    .addStringOption(option =>
+      option.setName('emoji1')
+            .setDescription('Emoji for the first role')
+            .setRequired(true))
+    // Pair 2
+    .addRoleOption(option =>
+      option.setName('role2')
+            .setDescription('Select the second role'))
+    .addStringOption(option =>
+      option.setName('emoji2')
+            .setDescription('Emoji for the second role'))
+    // Pair 3
+    .addRoleOption(option =>
+      option.setName('role3')
+            .setDescription('Select the third role'))
+    .addStringOption(option =>
+      option.setName('emoji3')
+            .setDescription('Emoji for the third role'))
+    // Pair 4
+    .addRoleOption(option =>
+      option.setName('role4')
+            .setDescription('Select the fourth role'))
+    .addStringOption(option =>
+      option.setName('emoji4')
+            .setDescription('Emoji for the fourth role'))
+    // Pair 5
+    .addRoleOption(option =>
+      option.setName('role5')
+            .setDescription('Select the fifth role'))
+    .addStringOption(option =>
+      option.setName('emoji5')
+            .setDescription('Emoji for the fifth role')),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
@@ -30,48 +64,48 @@ module.exports = {
     const channel = interaction.options.getChannel('channel');
     const title = interaction.options.getString('title');
     const description = interaction.options.getString('description');
-    const pairsInput = interaction.options.getString('pairs');
 
-    // Parse emoji=role pairs
-    const pairsArray = pairsInput.split(',').map(p => p.trim());
-    const roleMap = {};
-    let embedDescription = description + '\n\n';
+    const roleEmojiPairs = [];
+    const embedDescription = [description, '']; // Start with description
 
-    for (const pair of pairsArray) {
-      const [emoji, roleMention] = pair.split('=');
-      if (!emoji || !roleMention) continue;
-
-      const roleId = roleMention.replace(/[<@&>]/g, '');
-      const role = interaction.guild.roles.cache.get(roleId);
-      if (!role) continue;
-
-      roleMap[emoji.trim()] = role.id;
-      embedDescription += `${emoji.trim()} → <@&${role.id}>\n`;
-    }
-
-    if (Object.keys(roleMap).length === 0) {
-      return interaction.editReply('❌ No valid emoji-role pairs found.');
-    }
-
-    // Create embed
-    const embed = new EmbedBuilder()
-      .setTitle(title)
-      .setDescription(embedDescription)
-      .setColor('Blurple');
-
-    // Send message and add reactions
-    const panelMessage = await channel.send({ embeds: [embed] });
-    for (const emoji of Object.keys(roleMap)) {
-      try {
-        await panelMessage.react(emoji);
-      } catch (err) {
-        console.error(`Failed to react with ${emoji}:`, err);
+    // Loop through 5 possible pairs
+    for (let i = 1; i <= 5; i++) {
+      const role = interaction.options.getRole(`role${i}`);
+      const emoji = interaction.options.getString(`emoji${i}`);
+      if (role && emoji) {
+        roleEmojiPairs.push({ role, emoji });
+        embedDescription.push(`${emoji} → <@&${role.id}>`);
       }
     }
 
-    // Save to MongoDB
+    if (roleEmojiPairs.length === 0)
+      return interaction.editReply('❌ You must provide at least one role and emoji pair.');
+
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setDescription(embedDescription.join('\n'))
+      .setColor('Blurple');
+
+    // Send the panel message
+    const panelMessage = await channel.send({ embeds: [embed] });
+
+    // React with emojis
+    for (const pair of roleEmojiPairs) {
+      try {
+        await panelMessage.react(pair.emoji);
+      } catch (err) {
+        console.error(`Failed to react with ${pair.emoji}:`, err);
+      }
+    }
+
+    // Save to database
+    const roleMap = {};
+    roleEmojiPairs.forEach(pair => {
+      roleMap[pair.emoji] = pair.role.id;
+    });
+
     await saveReactionRolePanel(interaction.guild.id, panelMessage.id, roleMap);
 
-    return interaction.editReply(`✅ Reaction role panel created successfully in ${channel}.`);
+    await interaction.editReply(`✅ Reaction role panel created successfully in ${channel}.`);
   },
 };
