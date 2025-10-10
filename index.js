@@ -1,16 +1,20 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
-// ... other imports at the top
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-// Import the new deploy function from our deploy.js file
 const deployCommands = require('./deploy.js');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+const client = new Client({ 
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages // <-- FIXED: Added the missing intent
+    ] 
+});
 
-// --- Command Handler (unchanged) ---
+// --- Command Handler ---
 client.commands = new Collection();
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
@@ -26,7 +30,7 @@ for (const folder of commandFolders) {
     }
 }
 
-// --- Event Handler (unchanged) ---
+// --- Event Handler ---
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 for (const file of eventFiles) {
@@ -39,39 +43,13 @@ for (const file of eventFiles) {
     }
 }
 
+// FIXED: Removed the duplicate 'start' function and kept only the correct one.
 // --- Main Startup Logic ---
 async function start() {
     try {
-        // Run the deployment script on startup
-        await deployCommands();
-
-        // Log in to Discord with your client's token
-        await client.login(process.env.DISCORD_TOKEN);
-
-    } catch (error) {
-        console.error("Failed to start the bot:", error);
-    }
-}
-
-// Call the start function to begin the process
-start();
-
-
-// --- Ready Event ---
-client.once('ready', () => {
-    console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
-});
-
-
-
-
-// --- Main Startup Logic ---
-async function start() {
-    try {
-        // --- ADD THIS CONNECTION LOGIC ---
+        // Connect to the MongoDB database
         await mongoose.connect(process.env.MONGO_URI);
         console.log('✅ Connected to MongoDB database.');
-        // ---------------------------------
 
         // Run the deployment script on startup
         await deployCommands();
@@ -83,3 +61,11 @@ async function start() {
         console.error("❌ Failed to start the bot:", error);
     }
 }
+
+// Call the start function to begin the process
+start();
+
+// --- Ready Event ---
+client.once('ready', () => {
+    console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
+});
