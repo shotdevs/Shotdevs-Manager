@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Dashboard</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        h1, h2 { color: #333; }
+        pre { background: #f4f4f4; padding: 1em; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Bot Data</h1>
+
+    <h2>Guild Configurations</h2>
+    <pre id="guilds-data">Loading...</pre>
+
+    <h2>Member Profiles</h2>
+    <pre id="members-data">Loading...</pre>
+
+    <script>
+        async function fetchData() {
+            try {
+                const guildsRes = await fetch('/api/guilds');
+                const guildsData = await guildsRes.json();
+                document.getElementById('guilds-data').textContent = JSON.stringify(guildsData, null, 2);
+
+                const membersRes = await fetch('/api/members');
+                const membersData = await membersRes.json();
+                document.getElementById('members-data').textContent = JSON.stringify(membersData, null, 2);
+            } catch (error) {
+                console.error('Failed to fetch data:', error);
+                document.getElementById('guilds-data').textContent = 'Error loading data.';
+                document.getElementById('members-data').textContent = 'Error loading data.';
+            }
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>

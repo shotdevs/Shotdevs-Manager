@@ -70,6 +70,42 @@ async function start() {
         // Login to Discord
         await client.login(process.env.DISCORD_TOKEN);
 
+        // --- Web Server ---
+        const express = require('express');
+        const GuildConfig = require('./models/GuildConfig');
+        const MemberProfile = require('./models/MemberProfile');
+        const app = express();
+        const port = process.env.PORT || 3000;
+
+        app.set('view engine', 'ejs');
+        app.set('views', path.join(__dirname, 'views'));
+
+        app.get('/', (req, res) => {
+            res.render('index');
+        });
+
+        app.get('/api/guilds', async (req, res) => {
+            try {
+                const guilds = await GuildConfig.find();
+                res.json(guilds);
+            } catch (error) {
+                res.status(500).json({ message: error.message });
+            }
+        });
+
+        app.get('/api/members', async (req, res) => {
+            try {
+                const members = await MemberProfile.find();
+                res.json(members);
+            } catch (error) {
+                res.status(500).json({ message: error.message });
+            }
+        });
+
+        app.listen(port, () => {
+            console.log(`✅ Website listening on http://localhost:${port}`);
+        });
+
     } catch (error) {
         console.error('❌ Failed to start the bot:', error);
     }
