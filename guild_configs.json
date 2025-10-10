@@ -1,4 +1,5 @@
 {
+<<<<<<< Updated upstream
         "1105742461566988328": {
                 "ticketPanelDescription": "hey",
                 "enquiryCategoryId": "1425514412306989258",
@@ -12,4 +13,9 @@
                 "ticketCloseDelaySeconds": 5,
                 "ticketButtonLabels": { "close": "Close", "claim": "Claim", "transcript": "Transcript" }
         }
+=======
+  "1105742461566988328": {
+    "reactionRoles": {}
+  }
+>>>>>>> Stashed changes
 }
