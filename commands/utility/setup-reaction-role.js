@@ -1,105 +1,77 @@
-const {
-  SlashCommandBuilder,
-  EmbedBuilder,
-  PermissionFlagsBits,
-} = require('discord.js');
-const {
-  saveReactionRolePanel,
-  deleteReactionRolePanel,
-  listReactionRolePanels,
-} = require('../../configManager');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { saveReactionRolePanel } = require('../../configManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('reaction')
-    .setDescription('Manage reaction role panels')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-    .addSubcommand(sub =>
-      sub
-        .setName('create')
-        .setDescription('Create a new reaction role panel')
-        .addChannelOption(opt =>
-          opt.setName('channel').setDescription('Where to post the panel').setRequired(true))
-        .addStringOption(opt =>
-          opt.setName('title').setDescription('Panel title').setRequired(true))
-        .addStringOption(opt =>
-          opt.setName('emoji_role_pairs').setDescription('Format: 😀=@Role, 😎=@Role2').setRequired(true))
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName('remove')
-        .setDescription('Delete a reaction role panel')
-        .addStringOption(opt =>
-          opt.setName('message_id').setDescription('Message ID to delete').setRequired(true))
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName('list')
-        .setDescription('List all reaction role panels')),
+    .setName('setup-reaction-role')
+    .setDescription('Create a reaction role panel in a single command.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false)
+    .addChannelOption(option => 
+        option.setName('channel')
+              .setDescription('The channel where the panel will be created.')
+              .setRequired(true))
+    .addStringOption(option => 
+        option.setName('title')
+              .setDescription('The title of the embed.')
+              .setRequired(true))
+    .addStringOption(option => 
+        option.setName('description')
+              .setDescription('The description inside the embed.')
+              .setRequired(true))
+    .addStringOption(option => 
+        option.setName('pairs')
+              .setDescription('Emoji=Role pairs, comma separated. Example: 😀=@Member,😎=@VIP')
+              .setRequired(true)),
 
   async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
+    await interaction.deferReply({ ephemeral: true });
 
-    if (sub === 'create') {
-      const channel = interaction.options.getChannel('channel');
-      const title = interaction.options.getString('title');
-      const input = interaction.options.getString('emoji_role_pairs');
+    const channel = interaction.options.getChannel('channel');
+    const title = interaction.options.getString('title');
+    const description = interaction.options.getString('description');
+    const pairsInput = interaction.options.getString('pairs');
 
-      const pairs = input.split(',').map(s => s.trim());
-      const roleMap = {};
-      let description = '';
+    // Parse emoji=role pairs
+    const pairsArray = pairsInput.split(',').map(p => p.trim());
+    const roleMap = {};
+    let embedDescription = description + '\n\n';
 
-      for (const pair of pairs) {
-        const [emoji, roleMention] = pair.split('=');
-        const roleId = roleMention.replace(/[<@&>]/g, '');
-        const role = interaction.guild.roles.cache.get(roleId);
-        if (!role) continue;
-        roleMap[emoji.trim()] = role.id;
-        description += `${emoji.trim()} → ${role}\n`;
-      }
+    for (const pair of pairsArray) {
+      const [emoji, roleMention] = pair.split('=');
+      if (!emoji || !roleMention) continue;
 
-      const embed = new EmbedBuilder()
-        .setTitle(title)
-        .setDescription(description || 'No roles configured')
-        .setColor('Blurple');
+      const roleId = roleMention.replace(/[<@&>]/g, '');
+      const role = interaction.guild.roles.cache.get(roleId);
+      if (!role) continue;
 
-      const msg = await channel.send({ embeds: [embed] });
-
-      for (const emoji of Object.keys(roleMap)) {
-        await msg.react(emoji).catch(() => {});
-      }
-
-      await saveReactionRolePanel(interaction.guild.id, msg.id, roleMap);
-
-      return interaction.reply({
-        content: `✅ Reaction role panel created in ${channel}.`,
-        ephemeral: true,
-      });
+      roleMap[emoji.trim()] = role.id;
+      embedDescription += `${emoji.trim()} → <@&${role.id}>\n`;
     }
 
-    if (sub === 'remove') {
-      const messageId = interaction.options.getString('message_id');
-      await deleteReactionRolePanel(interaction.guild.id, messageId);
-      return interaction.reply({ content: `🗑️ Panel \`${messageId}\` removed.`, ephemeral: true });
+    if (Object.keys(roleMap).length === 0) {
+      return interaction.editReply('❌ No valid emoji-role pairs found.');
     }
 
-    if (sub === 'list') {
-      const panels = await listReactionRolePanels(interaction.guild.id);
-      if (panels.length === 0) return interaction.reply({ content: 'No panels found.', ephemeral: true });
+    // Create embed
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setDescription(embedDescription)
+      .setColor('Blurple');
 
-      const embed = new EmbedBuilder()
-        .setTitle('📋 Reaction Role Panels')
-        .setColor('Green');
-
-      for (const [messageId, roles] of panels) {
-        embed.addFields({
-          name: `Message ID: ${messageId}`,
-          value: Object.entries(roles).map(([e, r]) => `${e} → <@&${r}>`).join('\n'),
-          inline: false
-        });
+    // Send message and add reactions
+    const panelMessage = await channel.send({ embeds: [embed] });
+    for (const emoji of Object.keys(roleMap)) {
+      try {
+        await panelMessage.react(emoji);
+      } catch (err) {
+        console.error(`Failed to react with ${emoji}:`, err);
       }
-
-      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
+
+    // Save to MongoDB
+    await saveReactionRolePanel(interaction.guild.id, panelMessage.id, roleMap);
+
+    return interaction.editReply(`✅ Reaction role panel created successfully in ${channel}.`);
   },
 };
