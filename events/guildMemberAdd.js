@@ -4,47 +4,29 @@ const { getConfig } = require('../configManager');
 module.exports = {
     name: Events.GuildMemberAdd,
     async execute(member) {
-        // FIXED: Added 'await' to get the configuration from the database
         const config = await getConfig(member.guild.id);
 
-        // This check is fine, it will now work correctly
         if (!config.welcomeEnabled) return;
 
-        // Send welcome message
-        if (config.welcomeChannelId && config.welcomeMessage) {
-            const channel = member.guild.channels.cache.get(config.welcomeChannelId);
-            if (channel) {
-                const msg = config.welcomeMessage
-                    .replace('{user}', `<@${member.id}>`)
-                    .replace('{server}', member.guild.name);
-                
-                channel.send({ content: msg }).catch(error => {
-                    console.error(`Could not send welcome message to channel ${channel.id}:`, error);
-                });
-            }
-        }
-
-        // Assign role
+        // Auto-Role Logic
         if (config.welcomeRoleId) {
             const role = member.guild.roles.cache.get(config.welcomeRoleId);
             if (role) {
-                // IMPROVED: Added error logging
-                member.roles.add(role).catch(error => {
-                    console.error(`Could not add role ${role.id} to user ${member.id}:`, error);
-                });
+                member.roles.add(role).catch(err => console.error(`Failed to add role to ${member.user.tag}:`, err));
             }
         }
 
-        // Optionally, send DM
-        if (config.welcomeDM) {
-            const msg = config.welcomeMessage
-                .replace('{user}', member.user.username)
-                .replace('{server}', member.guild.name);
-            
-            // IMPROVED: Added error logging
-            member.send({ content: msg }).catch(error => {
-                console.error(`Could not send welcome DM to user ${member.id}:`, error);
-            });
+        // Welcome Message Logic
+        if (config.welcomeChannelId) {
+            const channel = member.guild.channels.cache.get(config.welcomeChannelId);
+            if (channel) {
+                const welcomeMessage = config.welcomeMessage
+                    .replace('{user}', member.toString())
+                    .replace('{servername}', member.guild.name)
+                    .replace('{servermembercount}', member.guild.memberCount.toString());
+                
+                channel.send(welcomeMessage).catch(err => console.error(`Failed to send welcome message:`, err));
+            }
         }
     },
 };
