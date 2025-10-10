@@ -62,8 +62,7 @@ client.once('ready', () => {
 // ... other imports at the top
 const mongoose = require('mongoose');
 
-// Import the new deploy function
-const deployCommands = require('./deploy.js');
+
 
 // --- Main Startup Logic ---
 async function start() {
