@@ -1,42 +1,66 @@
-const { SlashCommandBuilder, AttachmentBuilder } = require("discord.js");
-const { Rank } = require("canvacord");
-const Level = require("../../models/Level");
+const { SlashCommandBuilder } = require('discord.js');
+const { Rank } = require('canvacord');
+const MemberProfile = require('../../models/MemberProfile'); // Make sure you have this model
+const { AttachmentBuilder } = require('discord.js');
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("rank")
-    .setDescription("Check your or another user's rank card.")
-    .addUserOption(opt => opt.setName("user").setDescription("User to view").setRequired(false)),
+    data: new SlashCommandBuilder()
+        .setName('rank')
+        .setDescription('View your rank and level.')
+        .addUserOption(option =>
+            option.setName('target')
+                .setDescription('Select a user to view their rank')
+                .setRequired(false)
+        ),
 
-  async execute(interaction) {
-    const user = interaction.options.getUser("user") || interaction.user;
-    const guildId = interaction.guild.id;
+    async execute(interaction) {
+        try {
+            const target = interaction.options.getUser('target') || interaction.user;
 
-    const userData = await Level.findOne({ guildId, userId: user.id });
-    if (!userData) return interaction.reply({ content: "❌ No level data found for this user.", ephemeral: true });
+            // Fetch member data from MongoDB
+            let memberData = await MemberProfile.findOne({ guildId: interaction.guild.id, userId: target.id });
+            if (!memberData) {
+                // If no data, create default
+                memberData = await MemberProfile.create({
+                    guildId: interaction.guild.id,
+                    userId: target.id,
+                    xp: 0,
+                    level: 0
+                });
+            }
 
-    const allUsers = await Level.find({ guildId }).sort({ level: -1, xp: -1 });
-    const rank = allUsers.findIndex(u => u.userId === user.id) + 1;
+            const userXP = memberData.xp || 0;
+            const userLevel = memberData.level || 0;
 
-    const requiredXP = 5 * (userData.level ** 2) + 50 * userData.level + 100;
-    const background = userData.background || "https://i.imgur.com/FzK4eED.png";
+            // Calculate rank (optional: you can sort all members for global rank)
+            const allMembers = await MemberProfile.find({ guildId: interaction.guild.id }).sort({ xp: -1 });
+            const userRank = allMembers.findIndex(m => m.userId === target.id) + 1;
 
-    const card = new Rank()
-      .setAvatar(user.displayAvatarURL({ extension: "png", size: 512 }))
-      .setUsername(user.username)
-      .setDiscriminator(user.discriminator)
-      .setCurrentXP(userData.xp)
-      .setRequiredXP(requiredXP)
-      .setLevel(userData.level)
-      .setRank(rank)
-      .setBackground("IMAGE", background)
-      .setProgressBar("#FF4D4D", "COLOR")
-      .setOverlay("#000000", 0.4)
-      .setStatus(interaction.member?.presence?.status || "online");
+            // XP required for next level (example: simple formula)
+            const nextLevelXP = (userLevel + 1) * 100;
 
-    const img = await card.build();
-    const attachment = new AttachmentBuilder(img, { name: "rank.png" });
+            // Create rank card
+            const rankCard = new Rank()
+                .setAvatar(target.displayAvatarURL({ format: 'png' }))
+                .setCurrentXP(userXP)
+                .setLevel(userLevel)
+                .setRank(userRank, 'Rank')
+                .setRequiredXP(nextLevelXP)
+                .setUsername(target.username)
+                .setDiscriminator(target.discriminator)
+                .setStatus(target.presence?.status || "online")
+                .setProgressBar('#FFFFFF', 'COLOR')
+                .setBackground("IMAGE", "https://i.ibb.co/9N6y0sM/custom-bg.png"); // Your custom background URL
 
-    interaction.reply({ files: [attachment] });
-  }
+            const cardBuffer = await rankCard.build();
+
+            const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
+
+            await interaction.reply({ files: [attachment] });
+
+        } catch (err) {
+            console.error(err);
+            await interaction.reply({ content: '❌ An error occurred while generating the rank card.', ephemeral: true });
+        }
+    }
 };
