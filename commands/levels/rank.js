@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
-// We are removing require('canvacord') from the top
-const MemberProfile = require('../../models/MemberProfile');
+const { RankCardBuilder, Font } = require('canvacord');
+const Level = require('../../models/Level');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,34 +13,42 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: false });
 
         try {
-            // Use RankCardBuilder from canvacord
-            const { RankCardBuilder, Font } = await import('canvacord');
-
-            // Ensure the default font is loaded
+            // Ensure canvacord's default font is loaded before rendering
             if (Font && typeof Font.loadDefault === 'function') {
                 Font.loadDefault();
             }
 
             const target = interaction.options.getUser('target') || interaction.user;
-            const member = interaction.guild.members.cache.get(target.id);
 
-            let memberData = await MemberProfile.findOne({ guildId: interaction.guild.id, userId: target.id });
-            if (!memberData) {
-                memberData = { xp: 0, level: 0 };
+            // Fetch fresh member data from guild (presence may be updated)
+            let member = null;
+            try {
+                member = await interaction.guild.members.fetch(target.id);
+            } catch (e) {
+                // Member may not be in guild or fetch failed; keep member as null
+                member = null;
             }
 
-            const allMembers = await MemberProfile.find({ guildId: interaction.guild.id }).sort({ xp: -1 });
-            const userRank = allMembers.findIndex(m => m.userId === target.id) + 1 || allMembers.length + 1;
+            // Use Level model which stores xp/level
+            let memberData = await Level.findOne({ guildId: interaction.guild.id, userId: target.id });
+            const currentXP = Number(memberData?.xp) || 0;
+            const currentLevel = Number(memberData?.level) || 0;
 
-            const nextLevelXP = (memberData.level + 1) * 100;
+            // Build leaderboard ordering and compute rank (real-time from DB)
+            const allMembers = await Level.find({ guildId: interaction.guild.id }).sort({ level: -1, xp: -1 });
+            let userRank = allMembers.findIndex(m => String(m.userId) === String(target.id)) + 1;
+            if (!userRank || userRank <= 0) userRank = allMembers.length + (memberData ? 0 : 1);
+
+            // Next level XP formula (keep existing simple formula but ensure numbers)
+            const nextLevelXP = Number((currentLevel + 1) * 100) || 100;
 
             const rankCard = new RankCardBuilder()
                 .setAvatar(target.displayAvatarURL({ extension: 'png' }))
-                .setCurrentXP(memberData.xp)
-                .setLevel(memberData.level)
+                .setCurrentXP(currentXP)
+                .setLevel(currentLevel)
                 .setRank(userRank)
                 .setRequiredXP(nextLevelXP)
                 .setDisplayName(target.username)
