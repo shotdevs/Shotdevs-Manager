@@ -9,7 +9,7 @@ module.exports = {
     .setDMPermission(false)
     .addChannelOption(option =>
       option.setName('channel')
-            .setDescription('Channel where the panel will be created')
+            .setDescription('The channel where the panel will be created')
             .addChannelTypes(ChannelType.GuildText)
             .setRequired(true))
     .addStringOption(option =>
@@ -20,7 +20,8 @@ module.exports = {
       option.setName('description')
             .setDescription('Embed description')
             .setRequired(true))
-    // Pair 1
+    
+    // Role 1
     .addRoleOption(option =>
       option.setName('role1')
             .setDescription('Select the first role')
@@ -29,28 +30,28 @@ module.exports = {
       option.setName('emoji1')
             .setDescription('Emoji for the first role')
             .setRequired(true))
-    // Pair 2
+    // Role 2
     .addRoleOption(option =>
       option.setName('role2')
             .setDescription('Select the second role'))
     .addStringOption(option =>
       option.setName('emoji2')
             .setDescription('Emoji for the second role'))
-    // Pair 3
+    // Role 3
     .addRoleOption(option =>
       option.setName('role3')
             .setDescription('Select the third role'))
     .addStringOption(option =>
       option.setName('emoji3')
             .setDescription('Emoji for the third role'))
-    // Pair 4
+    // Role 4
     .addRoleOption(option =>
       option.setName('role4')
             .setDescription('Select the fourth role'))
     .addStringOption(option =>
       option.setName('emoji4')
             .setDescription('Emoji for the fourth role'))
-    // Pair 5
+    // Role 5
     .addRoleOption(option =>
       option.setName('role5')
             .setDescription('Select the fifth role'))
@@ -66,9 +67,9 @@ module.exports = {
     const description = interaction.options.getString('description');
 
     const roleEmojiPairs = [];
-    const embedDescription = [description, '']; // Start with description
+    const embedDescription = [description, ''];
 
-    // Loop through 5 possible pairs
+    // Loop through each role-emoji pair
     for (let i = 1; i <= 5; i++) {
       const role = interaction.options.getRole(`role${i}`);
       const emoji = interaction.options.getString(`emoji${i}`);
@@ -79,17 +80,17 @@ module.exports = {
     }
 
     if (roleEmojiPairs.length === 0)
-      return interaction.editReply('❌ You must provide at least one role and emoji pair.');
+      return interaction.editReply('❌ You must provide at least one role and emoji.');
 
+    // Build embed
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(embedDescription.join('\n'))
       .setColor('Blurple');
 
-    // Send the panel message
     const panelMessage = await channel.send({ embeds: [embed] });
 
-    // React with emojis
+    // Add reactions
     for (const pair of roleEmojiPairs) {
       try {
         await panelMessage.react(pair.emoji);
@@ -98,14 +99,11 @@ module.exports = {
       }
     }
 
-    // Save to database
+    // Save panel
     const roleMap = {};
-    roleEmojiPairs.forEach(pair => {
-      roleMap[pair.emoji] = pair.role.id;
-    });
-
+    roleEmojiPairs.forEach(pair => roleMap[pair.emoji] = pair.role.id);
     await saveReactionRolePanel(interaction.guild.id, panelMessage.id, roleMap);
 
-    await interaction.editReply(`✅ Reaction role panel created successfully in ${channel}.`);
+    await interaction.editReply(`✅ Reaction role panel created in ${channel}.`);
   },
 };
