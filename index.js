@@ -59,3 +59,27 @@ start();
 client.once('ready', () => {
     console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
 });
+// ... other imports at the top
+const mongoose = require('mongoose');
+
+// Import the new deploy function
+const deployCommands = require('./deploy.js');
+
+// --- Main Startup Logic ---
+async function start() {
+    try {
+        // --- ADD THIS CONNECTION LOGIC ---
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log('✅ Connected to MongoDB database.');
+        // ---------------------------------
+
+        // Run the deployment script on startup
+        await deployCommands();
+
+        // Log in to Discord with your client's token
+        await client.login(process.env.DISCORD_TOKEN);
+
+    } catch (error) {
+        console.error("❌ Failed to start the bot:", error);
+    }
+}
