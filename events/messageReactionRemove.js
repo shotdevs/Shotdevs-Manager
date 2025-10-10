@@ -1,48 +1,40 @@
 const { Events } = require('discord.js');
-const { getConfig } = require('../configManager'); // Adjust path if needed
+const { getConfig } = require('../configManager');
 
 module.exports = {
-    name: Events.MessageReactionRemove,
-    async execute(reaction, user) {
-        // Ignore reactions from bots
-        if (user.bot) return;
+  name: Events.MessageReactionRemove,
+  async execute(reaction, user) {
+    if (user.bot) return;
 
-        // If the reaction is on a message that might be old, fetch its full data
-        if (reaction.partial) {
-            try {
-                await reaction.fetch();
-            } catch (error) {
-                console.error('Something went wrong when fetching the message:', error);
-                return;
-            }
-        }
+    try {
+      // Fetch missing data if partial
+      if (reaction.partial) await reaction.fetch();
+      if (user.partial) await user.fetch();
 
-        const guildId = reaction.message.guildId;
-        if (!guildId) return; // Ignore reactions in DMs
+      const guild = reaction.message.guild;
+      if (!guild) return;
 
-        // Get the server's configuration
-        const config = await getConfig(guildId);
-        const reactionRoleData = config.reactionRoles?.[reaction.message.id];
+      const config = await getConfig(guild.id);
+      const reactionRoleData = config.reactionRoles?.[reaction.message.id];
+      if (!reactionRoleData) return; // not a panel
 
-        // If the message is not a configured reaction role panel, do nothing
-        if (!reactionRoleData) return;
-        
-        // Find the role ID linked to the specific emoji that was used
-        const roleId = reactionRoleData[reaction.emoji.name] || reactionRoleData[reaction.emoji.toString()];
-        if (!roleId) return;
+      const emojiKey = reaction.emoji.id
+        ? `<:${reaction.emoji.name}:${reaction.emoji.id}>`
+        : reaction.emoji.name;
 
-        // Get the server, the role, and the member who reacted
-        const guild = reaction.message.guild;
-        const role = guild.roles.cache.get(roleId);
-        const member = await guild.members.fetch(user.id);
+      const roleId = reactionRoleData[emojiKey];
+      if (!roleId) return;
 
-        if (role && member) {
-            try {
-                // Remove the role from the member
-                await member.roles.remove(role);
-            } catch (err) {
-                console.error(`Failed to remove role "${role.name}" from ${member.user.tag}. Check permissions and role hierarchy.`, err);
-            }
-        }
-    },
+      const role = guild.roles.cache.get(roleId);
+      const member = await guild.members.fetch(user.id);
+
+      if (!role) return console.log(`⚠️ Role not found for ID ${roleId}`);
+      if (!member) return console.log(`⚠️ Member not found for user ${user.id}`);
+
+      await member.roles.remove(role);
+      console.log(`🚫 Removed role "${role.name}" from ${member.user.tag}`);
+    } catch (err) {
+      console.error('❌ Error in messageReactionRemove event:', err);
+    }
+  },
 };
