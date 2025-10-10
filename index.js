@@ -10,7 +10,7 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages // <-- FIXED: Added the missing intent
+        GatewayIntentBits.GuildMessages
     ] 
 });
 
@@ -25,6 +25,7 @@ for (const folder of commandFolders) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
+            command.category = folder; // <-- THIS IS THE NEW LINE
             client.commands.set(command.data.name, command);
         }
     }
@@ -43,7 +44,6 @@ for (const file of eventFiles) {
     }
 }
 
-// FIXED: Removed the duplicate 'start' function and kept only the correct one.
 // --- Main Startup Logic ---
 async function start() {
     try {
