@@ -1,4 +1,4 @@
-const { Events } from 'discord.js';
+const { Events } = require('discord.js');
 const { getConfig } = require('../configManager'); // Adjust path if needed
 
 module.exports = {
