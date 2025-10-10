@@ -2,6 +2,7 @@ const { Schema, model } = require('mongoose');
 
 const guildConfigSchema = new Schema({
     guildId: { type: String, required: true, unique: true },
+    prefix: {type: String, default: '!' },
     // Role Configuration
     staffRoleId: { type: String },
     adminRoles: [{ type: String }],
@@ -49,5 +50,15 @@ const guildConfigSchema = new Schema({
     // Logging Configuration
     logChannelId: { type: String },
 });
+
+
+  // ✅ Multiple reaction panels, stored by message ID
+  reactionRoles: {
+    type: Map,
+    of: Object, // each messageId maps to { emoji: roleId }
+    default: {}
+  },
+});
+
 
 module.exports = model('GuildConfig', guildConfigSchema);
