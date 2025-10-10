@@ -1,12 +1,21 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('avatar')
-        .setDescription('Shows your avatar or the avatar of a mentioned user.')
-        .addUserOption(option => option.setName('user').setDescription('The user to get the avatar of').setRequired(false)),
+        .setDescription('Displays a user\'s avatar.')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('The user whose avatar you want to see.')
+                .setRequired(false)), // Optional, defaults to the command user
     async execute(interaction) {
         const user = interaction.options.getUser('user') || interaction.user;
-        await interaction.reply({ content: `${user.username}'s avatar: ${user.displayAvatarURL({ dynamic: true, size: 1024 })}` });
+
+        const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle(`${user.username}'s Avatar`)
+            .setImage(user.displayAvatarURL({ dynamic: true, size: 512 }));
+
+        await interaction.reply({ embeds: [embed] });
     },
 };
