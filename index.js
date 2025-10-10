@@ -1,6 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
+// ... other imports at the top
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 // Import the new deploy function from our deploy.js file
@@ -59,8 +61,7 @@ start();
 client.once('ready', () => {
     console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
 });
-// ... other imports at the top
-const mongoose = require('mongoose');
+
 
 
 
