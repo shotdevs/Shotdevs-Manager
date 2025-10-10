@@ -5,17 +5,7 @@ const adminConfig = {
         enabled: false
     },
 
-    // Ticket system configuration
-    tickets: {
-        defaultPanelTitle: 'Support Tickets',
-        defaultPanelDescription: 'Click the button below to create a support ticket.',
-        defaultMessageContent: 'Thank you for creating a ticket. Our staff will assist you shortly.',
-        categories: {
-            order: 'Orders',
-            enquiry: 'Enquiries',
-            support: 'Support'
-        }
-    },
+    // (ticket system configuration removed - using DB/command-driven config only)
 
     // Role configuration
     roles: {

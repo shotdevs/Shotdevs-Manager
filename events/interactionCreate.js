@@ -63,10 +63,12 @@ module.exports = {
                 });
 
                 const ticketEmbed = new EmbedBuilder().setColor(0x5865F2).setTitle(`${ticketType} Ticket`).setDescription(`Welcome ${user}!\nA staff member will be with you shortly. Please describe your reason for opening this ticket in detail.`).setFooter({ text: `${guild.name} | Ticket System` }).setTimestamp();
+                // Use configurable labels if provided
+                const btnLabels = guildConfig.ticketButtonLabels || {};
                 const ticketButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('close_ticket_button').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-                    new ButtonBuilder().setCustomId('claim_ticket_button').setLabel('Claim').setStyle(ButtonStyle.Success).setEmoji('🙋'),
-                    new ButtonBuilder().setCustomId('transcript_ticket_button').setLabel('Transcript').setStyle(ButtonStyle.Primary).setEmoji('📝')
+                    new ButtonBuilder().setCustomId('close_ticket_button').setLabel(btnLabels.close || 'Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+                    new ButtonBuilder().setCustomId('claim_ticket_button').setLabel(btnLabels.claim || 'Claim').setStyle(ButtonStyle.Success).setEmoji('🙋'),
+                    new ButtonBuilder().setCustomId('transcript_ticket_button').setLabel(btnLabels.transcript || 'Transcript').setStyle(ButtonStyle.Primary).setEmoji('📝')
                 );
                 await ticketChannel.send({ content: `${staffRole}`, embeds: [ticketEmbed], components: [ticketButtons] });
                 await interaction.editReply({ content: `Ticket created in ${ticketChannel}!` });
@@ -75,7 +77,8 @@ module.exports = {
             else if (customId === 'close_ticket_button') {
                 await interaction.reply({ content: 'Saving transcript and closing ticket...', flags: [ 'Ephemeral' ] });
                 try {
-                    const logChannelId = guildConfig.ticketLogChannelId;
+                    // Prefer a dedicated transcript channel if set, otherwise fall back to log channel
+                    const logChannelId = guildConfig.ticketTranscriptChannelId || guildConfig.ticketLogChannelId;
                     const logChannel = guild.channels.cache.get(logChannelId);
                     if (logChannel) {
                         let transcript = `Ticket created by: ${channel.topic?.split('. User ID: ')[0].replace('Ticket for ', '') || 'Unknown User'}\n`;
@@ -94,7 +97,10 @@ module.exports = {
                 } catch (error) {
                     console.error("Failed to log ticket:", error);
                 }
-                setTimeout(() => channel.delete(), 5000);
+
+                // Use configurable close delay (seconds) if provided
+                const delaySeconds = guildConfig.ticketCloseDelaySeconds ?? 5;
+                setTimeout(() => channel.delete(), Math.max(0, delaySeconds) * 1000);
             }
             // --- TICKET CLAIMING LOGIC ---
             else if (customId === 'claim_ticket_button') {

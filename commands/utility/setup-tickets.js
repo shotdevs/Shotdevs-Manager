@@ -19,20 +19,30 @@ module.exports = {
             });
         }
 
-        const panelTitle = guildConfig.ticketPanelTitle || 'Create a Ticket';
-        const panelDescription = guildConfig.ticketPanelDescription || 'Please select the reason for opening a ticket below.';
+    const panelTitle = guildConfig.ticketPanelTitle || 'Create a Ticket';
+    const panelDescription = guildConfig.ticketPanelDescription || 'Please select the reason for opening a ticket below.';
+    const labels = guildConfig.ticketButtonLabels || {};
         const ticketEmbed = new EmbedBuilder().setColor(0x0099FF).setTitle(panelTitle).setDescription(panelDescription);
 
-        const orderButton = new ButtonBuilder().setCustomId('create_order_ticket').setLabel('Order').setStyle(ButtonStyle.Success).setEmoji('🛒');
-        const enquiryButton = new ButtonBuilder().setCustomId('create_enquiry_ticket').setLabel('Enquiry').setStyle(ButtonStyle.Primary).setEmoji('❓');
-        const supportButton = new ButtonBuilder().setCustomId('create_support_ticket').setLabel('Support').setStyle(ButtonStyle.Secondary).setEmoji('🎟️');
+    const orderButton = new ButtonBuilder().setCustomId('create_order_ticket').setLabel(labels.order || 'Order').setStyle(ButtonStyle.Success).setEmoji('🛒');
+    const enquiryButton = new ButtonBuilder().setCustomId('create_enquiry_ticket').setLabel(labels.enquiry || 'Enquiry').setStyle(ButtonStyle.Primary).setEmoji('❓');
+    const supportButton = new ButtonBuilder().setCustomId('create_support_ticket').setLabel(labels.support || 'Support').setStyle(ButtonStyle.Secondary).setEmoji('🎟️');
         
         const row = new ActionRowBuilder().addComponents(orderButton, enquiryButton, supportButton);
 
-        await interaction.channel.send({ embeds: [ticketEmbed], components: [row] });
+        const sent = await interaction.channel.send({ embeds: [ticketEmbed], components: [row] });
+
+        // Persist where the panel was posted so other parts of the bot can reference it
+        const { setConfig } = require('../../configManager');
+        try {
+            await setConfig(interaction.guild.id, 'ticketPanelChannelId', interaction.channel.id);
+            await setConfig(interaction.guild.id, 'ticketPanelMessageId', sent.id);
+        } catch (err) {
+            console.error('Failed to save ticket panel info to config:', err);
+        }
+
         await interaction.reply({ 
             content: '3-button ticket panel created!', 
-            // FIXED: Updated to use flags to remove the warning
             flags: [ 'Ephemeral' ] 
         });
     },

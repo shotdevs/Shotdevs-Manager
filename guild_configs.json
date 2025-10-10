@@ -6,6 +6,12 @@
         "ticketCategoryId": "1284000578434895955",
         "orderCategoryId": "1425514307512438895",
         "enquiryCategoryId": "1425514412306989258",
-        "supportCategoryId": "1425514364697317578"
+        "supportCategoryId": "1425514364697317578",
+        "ticketPanelChannelId": "142551999999999999",
+        "ticketPanelMessageId": "999999999999999999",
+        "ticketLogChannelId": "142552111111111111",
+        "ticketTranscriptChannelId": "142552222222222222",
+        "ticketCloseDelaySeconds": 5,
+        "ticketButtonLabels": { "close": "Close", "claim": "Claim", "transcript": "Transcript" }
     }
 }
