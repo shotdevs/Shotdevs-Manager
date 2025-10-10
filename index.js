@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client, Collection, GatewayIntentBits } = require('discord.js');
+const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
@@ -10,23 +10,34 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages
-    ] 
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions
+    ],
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
 // --- Command Handler ---
 client.commands = new Collection();
+
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
+
+// Recursively read all subfolders
 for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
+    if (!fs.lstatSync(commandsPath).isDirectory()) continue;
+
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
+
         if ('data' in command && 'execute' in command) {
-            command.category = folder; // <-- THIS IS THE NEW LINE
+            command.category = folder;
             client.commands.set(command.data.name, command);
+            console.log(`[LOAD] Command loaded: ${command.data.name}`);
+        } else {
+            console.log(`[WARN] Command not loaded: ${file}`);
         }
     }
 }
@@ -34,11 +45,13 @@ for (const folder of commandFolders) {
 // --- Event Handler ---
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
 for (const file of eventFiles) {
     const filePath = path.join(eventsPath, file);
     const event = require(filePath);
+
     if (event.once) {
-        client.once(event.name, (...args) => event.execute(...args));
+        client.once(event.name, (...args) => event.execute(...args, client));
     } else {
         client.on(event.name, (...args) => event.execute(...args, client));
     }
@@ -47,29 +60,21 @@ for (const file of eventFiles) {
 // --- Main Startup Logic ---
 async function start() {
     try {
-        // Connect to the MongoDB database
+        // Connect to MongoDB
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB database.');
+        console.log('✅ Connected to MongoDB');
 
-        // Run the deployment script on startup
+        // Deploy slash commands
         await deployCommands();
 
-        // Log in to Discord with your client's token
+        // Login to Discord
         await client.login(process.env.DISCORD_TOKEN);
-            const { setClient } = require('./logger');
-            client.once('ready', () => {
-                setClient(client);
-            });
 
     } catch (error) {
-        console.error("❌ Failed to start the bot:", error);
+        console.error('❌ Failed to start the bot:', error);
     }
 }
 
-// Call the start function to begin the process
 start();
 
-// --- Ready Event ---
-client.once('ready', () => {
-    console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
-});
+module.exports = client;
