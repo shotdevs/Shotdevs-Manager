@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client, Collection, GatewayIntentBits } = require('discord.js');
+// Import Partials
+const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
@@ -10,8 +11,10 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages
-    ] 
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions // <-- ADDED: Allows bot to see reactions
+    ],
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction] // <-- ADDED: Helps bot read reactions on old messages
 });
 
 // --- Command Handler ---
@@ -25,7 +28,7 @@ for (const folder of commandFolders) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
-            command.category = folder; // <-- THIS IS THE NEW LINE
+            command.category = folder;
             client.commands.set(command.data.name, command);
         }
     }
@@ -38,7 +41,7 @@ for (const file of eventFiles) {
     const filePath = path.join(eventsPath, file);
     const event = require(filePath);
     if (event.once) {
-        client.once(event.name, (...args) => event.execute(...args));
+        client.once(event.name, (...args) => event.execute(...args, client));
     } else {
         client.on(event.name, (...args) => event.execute(...args, client));
     }
@@ -56,10 +59,12 @@ async function start() {
 
         // Log in to Discord with your client's token
         await client.login(process.env.DISCORD_TOKEN);
-            const { setClient } = require('./logger');
-            client.once('ready', () => {
-                setClient(client);
-            });
+        
+        // This is now handled by your ready.js event file
+        // const { setClient } = require('./logger');
+        // client.once('ready', () => {
+        //     setClient(client);
+        // });
 
     } catch (error) {
         console.error("❌ Failed to start the bot:", error);
@@ -69,7 +74,8 @@ async function start() {
 // Call the start function to begin the process
 start();
 
+// This is now handled by your ready.js event file
 // --- Ready Event ---
-client.once('ready', () => {
-    console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
-});
+// client.once('ready', () => {
+//     console.log(`🤖 Bot is online! Logged in as ${client.user.tag}`);
+// });
