@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
-const { Rank } = require('canvacord'); // Correct import for latest canvacord
+// We are removing require('canvacord') from the top
 const MemberProfile = require('../../models/MemberProfile');
 
 module.exports = {
@@ -16,6 +16,10 @@ module.exports = {
         await interaction.deferReply({ ephemeral: true });
 
         try {
+            // --- NEW: Load canvacord dynamically ---
+            const { Rank } = await import('canvacord');
+            // ------------------------------------
+
             const target = interaction.options.getUser('target') || interaction.user;
             const member = interaction.guild.members.cache.get(target.id);
 
@@ -29,7 +33,7 @@ module.exports = {
 
             const nextLevelXP = (memberData.level + 1) * 100;
 
-            const rankCard = new Rank() // Correct usage for latest canvacord
+            const rankCard = new Rank()
                 .setAvatar(target.displayAvatarURL({ extension: 'png' }))
                 .setCurrentXP(memberData.xp)
                 .setLevel(memberData.level)
