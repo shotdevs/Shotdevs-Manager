@@ -9,11 +9,12 @@ const guildConfigSchema = new Schema({
     enquiryCategoryId: { type: String },
     supportCategoryId: { type: String },
     ticketLogChannelId: { type: String },
-    // NEW WELCOME SYSTEM FIELDS
     welcomeChannelId: { type: String },
     welcomeRoleId: { type: String },
     welcomeMessage: { type: String, default: 'Welcome {user} to {servername}!' },
     welcomeEnabled: { type: Boolean, default: false },
+    // NEW: Add this line for the button role system
+    buttonRoles: { type: Array, default: [] },
 });
 
 module.exports = model('GuildConfig', guildConfigSchema);
