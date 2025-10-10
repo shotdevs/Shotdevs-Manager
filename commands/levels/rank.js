@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
-const canvacord = require('canvacord'); // <-- 1. CHANGED THIS LINE
+const canvacord = require('canvacord');
 const MemberProfile = require('../../models/MemberProfile');
 
 module.exports = {
@@ -18,6 +18,7 @@ module.exports = {
 
         try {
             const target = interaction.options.getUser('target') || interaction.user;
+            const member = interaction.guild.members.cache.get(target.id);
 
             let memberData = await MemberProfile.findOne({ guildId: interaction.guild.id, userId: target.id });
             if (!memberData) {
@@ -29,30 +30,37 @@ module.exports = {
 
             const nextLevelXP = (memberData.level + 1) * 100;
 
-            // Create rank card
-            const rankCard = new canvacord.Rank() // <-- 2. CHANGED THIS LINE
-                .setAvatar(target.displayAvatarURL({ extension: 'png' }))
-                .setCurrentXP(memberData.xp)
-                .setLevel(memberData.level)
-                .setRank(userRank, 'Rank')
-                .setRequiredXP(nextLevelXP)
-                .setUsername(target.username)
-                // Discriminator is deprecated in Discord, canvacord handles this automatically
-                // .setDiscriminator(target.discriminator) 
-                .setStatus(interaction.guild.members.cache.get(target.id)?.presence?.status || "offline")
-                .setProgressBar('#FFFFFF', 'COLOR')
-                .setBackground("IMAGE", "https://i.ibb.co/9N6y0sM/custom-bg.png");
+            // --- THIS IS THE CORRECTED PART ---
+            const rankCard = await canvacord.Image.rank({
+                avatar: target.displayAvatarURL({ extension: 'png' }),
+                currentXP: memberData.xp,
+                level: memberData.level,
+                rank: userRank,
+                requiredXP: nextLevelXP,
+                username: target.username,
+                status: member?.presence?.status || "offline",
+                progressBar: {
+                    bar: "#FFFFFF",
+                    background: "#555555"
+                },
+                background: {
+                    type: "image",
+                    source: "https://i.ibb.co/9N6y0sM/custom-bg.png"
+                }
+            });
+            // ------------------------------------
 
-            const cardBuffer = await rankCard.build();
-
-            const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
+            const attachment = new AttachmentBuilder(rankCard, { name: 'rank.png' });
 
             await interaction.editReply({ files: [attachment] });
 
         } catch (err) {
             console.error(err);
-            // Fix for the 'ephemeral' warning in your log
-            await interaction.editReply({ content: '❌ An error occurred while generating the rank card.', flags: [ 'Ephemeral' ] });
+            // The error message is now ephemeral (private to the command user)
+            await interaction.editReply({
+                content: '❌ An error occurred while generating the rank card.',
+                ephemeral: true
+            });
         }
     }
 };
