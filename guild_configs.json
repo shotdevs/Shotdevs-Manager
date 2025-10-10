@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "1105742461566988328": {
     "staffRoleId": "1425508511919636623",
     "ticketPanelTitle": "TICKET",
@@ -27,4 +28,19 @@
       }
     }
   }
+=======
+        "1105742461566988328": {
+                "ticketPanelDescription": "hey",
+                "enquiryCategoryId": "1425514412306989258",
+                "orderCategoryId": "1425514307512438895",
+                "supportCategoryId": "1425514364697317578",
+                "staffRoleId": "1166230588668252200",
+                "ticketPanelChannelId": "142551999999999999",
+                "ticketPanelMessageId": "999999999999999999",
+                "ticketLogChannelId": "142552111111111111",
+                "ticketTranscriptChannelId": "142552222222222222",
+                "ticketCloseDelaySeconds": 5,
+                "ticketButtonLabels": { "close": "Close", "claim": "Claim", "transcript": "Transcript" }
+        }
+>>>>>>> 44b48293eca80a37744a746e005aabc0d1c58fd4
 }

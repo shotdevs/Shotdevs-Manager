@@ -8,11 +8,6 @@ yarn-error.log
 logs/
 *.log
 
-# dotenv environment variables
-.env
-.env.*
-.env.local
-
 # OS
 .DS_Store
 Thumbs.db
@@ -56,3 +51,5 @@ pids
 
 # Test output
 /test-output/
+node_modules
+node_modules
