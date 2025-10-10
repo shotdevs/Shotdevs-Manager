@@ -22,7 +22,6 @@ client.commands = new Collection();
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
-// Recursively read all subfolders
 for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
     if (!fs.lstatSync(commandsPath).isDirectory()) continue;
@@ -60,17 +59,17 @@ for (const file of eventFiles) {
 // --- Main Startup Logic ---
 async function start() {
     try {
-        // Connect to MongoDB
+        // --- MongoDB ---
         await mongoose.connect(process.env.MONGO_URI);
         console.log('✅ Connected to MongoDB');
 
-        // Deploy slash commands
+        // --- Deploy slash commands ---
         await deployCommands();
 
-        // Login to Discord
+        // --- Discord login ---
         await client.login(process.env.DISCORD_TOKEN);
 
-        // --- Web Server ---
+        // --- Express Web Server ---
         const express = require('express');
         const GuildConfig = require('./models/GuildConfig');
         const MemberProfile = require('./models/MemberProfile');
@@ -80,9 +79,7 @@ async function start() {
         app.set('view engine', 'ejs');
         app.set('views', path.join(__dirname, 'views'));
 
-        app.get('/', (req, res) => {
-            res.render('index');
-        });
+        app.get('/', (req, res) => res.render('index'));
 
         app.get('/api/guilds', async (req, res) => {
             try {
