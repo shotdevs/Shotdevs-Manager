@@ -3,7 +3,7 @@ const { setConfig } = require('../../configManager');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('set-support-role')
+        .setName('set-role')
         .setDescription('Set the role that can manage tickets.')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addRoleOption(option => option.setName('support-role').setDescription('The support staff role').setRequired(true)),
