@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
-const { Rank } = require('canvacord'); // <-- Corrected import
+const { Rank } = require('canvacord'); // Correct import for latest canvacord
 const MemberProfile = require('../../models/MemberProfile');
 
 module.exports = {
@@ -13,7 +13,6 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        // Defer the reply ephemerally. This makes the entire interaction private.
         await interaction.deferReply({ ephemeral: true });
 
         try {
@@ -30,8 +29,7 @@ module.exports = {
 
             const nextLevelXP = (memberData.level + 1) * 100;
 
-            // --- THIS IS THE CORRECTED SYNTAX ---
-            const rankCard = new Rank()
+            const rankCard = new Rank() // Correct usage for latest canvacord
                 .setAvatar(target.displayAvatarURL({ extension: 'png' }))
                 .setCurrentXP(memberData.xp)
                 .setLevel(memberData.level)
@@ -41,7 +39,6 @@ module.exports = {
                 .setStatus(member?.presence?.status || "offline")
                 .setProgressBar('#FFFFFF', 'COLOR')
                 .setBackground("IMAGE", "https://i.ibb.co/9N6y0sM/custom-bg.png");
-            // ------------------------------------
 
             const cardBuffer = await rankCard.build();
             const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
@@ -50,7 +47,6 @@ module.exports = {
 
         } catch (err) {
             console.error(err);
-            // This reply will now be ephemeral because the deferReply was.
             await interaction.editReply({
                 content: '❌ An error occurred while generating the rank card.'
             });
