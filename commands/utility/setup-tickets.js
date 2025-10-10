@@ -30,10 +30,12 @@ module.exports = {
             { key: 'ticketPanelTitle', value: interaction.options.getString('panel_title') },
             { key: 'ticketPanelDescription', value: interaction.options.getString('panel_description') },
         ];
+        const { logEvent } = require('../../logger');
         for (const opt of options) {
             if (opt.value) {
                 await setConfig(interaction.guild.id, opt.key, opt.value);
                 updated = true;
+                logEvent(`:gear: Config updated: **${opt.key}** set to ${opt.value}`);
             }
         }
         // Button labels as an object
@@ -49,10 +51,10 @@ module.exports = {
             if (supportLabel) labels.support = supportLabel;
             await setConfig(interaction.guild.id, 'ticketButtonLabels', labels);
             updated = true;
+            logEvent(`:gear: Ticket button labels updated: ${JSON.stringify(labels)}`);
         }
         if (updated) {
             await interaction.reply({ content: '✅ Ticket configuration updated.', flags: [ 'Ephemeral' ] });
-            // If only updating config, do not create panel unless run without options
             return;
         }
 
@@ -77,8 +79,10 @@ module.exports = {
         try {
             await setConfig(interaction.guild.id, 'ticketPanelChannelId', interaction.channel.id);
             await setConfig(interaction.guild.id, 'ticketPanelMessageId', sent.id);
+            logEvent(`:tickets: Ticket panel created in <#${interaction.channel.id}> by <@${interaction.user.id}>`);
         } catch (err) {
-            console.error('Failed to save ticket panel info to config:', err);
+            const { debugLog } = require('../../logger');
+            debugLog('Failed to save ticket panel info to config:', err);
         }
         await interaction.reply({ 
             content: '3-button ticket panel created!', 

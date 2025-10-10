@@ -56,6 +56,10 @@ async function start() {
 
         // Log in to Discord with your client's token
         await client.login(process.env.DISCORD_TOKEN);
+            const { setClient } = require('./logger');
+            client.once('ready', () => {
+                setClient(client);
+            });
 
     } catch (error) {
         console.error("❌ Failed to start the bot:", error);
