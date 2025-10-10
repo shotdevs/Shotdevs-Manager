@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
-const canvacord = require('canvacord');
+const { Rank } = require('canvacord'); // <-- Corrected import
 const MemberProfile = require('../../models/MemberProfile');
 
 module.exports = {
@@ -13,8 +13,8 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        // Defer reply to prevent interaction timeout for image generation
-        await interaction.deferReply();
+        // Defer the reply ephemerally. This makes the entire interaction private.
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const target = interaction.options.getUser('target') || interaction.user;
@@ -22,7 +22,7 @@ module.exports = {
 
             let memberData = await MemberProfile.findOne({ guildId: interaction.guild.id, userId: target.id });
             if (!memberData) {
-                memberData = { xp: 0, level: 0 }; // Use a default object if no user data
+                memberData = { xp: 0, level: 0 };
             }
 
             const allMembers = await MemberProfile.find({ guildId: interaction.guild.id }).sort({ xp: -1 });
@@ -30,36 +30,29 @@ module.exports = {
 
             const nextLevelXP = (memberData.level + 1) * 100;
 
-            // --- THIS IS THE CORRECTED PART ---
-            const rankCard = await canvacord.Image.rank({
-                avatar: target.displayAvatarURL({ extension: 'png' }),
-                currentXP: memberData.xp,
-                level: memberData.level,
-                rank: userRank,
-                requiredXP: nextLevelXP,
-                username: target.username,
-                status: member?.presence?.status || "offline",
-                progressBar: {
-                    bar: "#FFFFFF",
-                    background: "#555555"
-                },
-                background: {
-                    type: "image",
-                    source: "https://i.ibb.co/9N6y0sM/custom-bg.png"
-                }
-            });
+            // --- THIS IS THE CORRECTED SYNTAX ---
+            const rankCard = new Rank()
+                .setAvatar(target.displayAvatarURL({ extension: 'png' }))
+                .setCurrentXP(memberData.xp)
+                .setLevel(memberData.level)
+                .setRank(userRank, 'Rank')
+                .setRequiredXP(nextLevelXP)
+                .setUsername(target.username)
+                .setStatus(member?.presence?.status || "offline")
+                .setProgressBar('#FFFFFF', 'COLOR')
+                .setBackground("IMAGE", "https://i.ibb.co/9N6y0sM/custom-bg.png");
             // ------------------------------------
 
-            const attachment = new AttachmentBuilder(rankCard, { name: 'rank.png' });
+            const cardBuffer = await rankCard.build();
+            const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
 
             await interaction.editReply({ files: [attachment] });
 
         } catch (err) {
             console.error(err);
-            // The error message is now ephemeral (private to the command user)
+            // This reply will now be ephemeral because the deferReply was.
             await interaction.editReply({
-                content: '❌ An error occurred while generating the rank card.',
-                ephemeral: true
+                content: '❌ An error occurred while generating the rank card.'
             });
         }
     }
