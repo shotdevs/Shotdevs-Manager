@@ -16,9 +16,13 @@ module.exports = {
         await interaction.deferReply({ ephemeral: true });
 
         try {
-            // --- NEW: Load canvacord dynamically ---
-            const { Rank } = await import('canvacord');
-            // ------------------------------------
+            // Use RankCardBuilder from canvacord
+            const { RankCardBuilder, Font } = await import('canvacord');
+
+            // Ensure the default font is loaded
+            if (Font && typeof Font.loadDefault === 'function') {
+                Font.loadDefault();
+            }
 
             const target = interaction.options.getUser('target') || interaction.user;
             const member = interaction.guild.members.cache.get(target.id);
@@ -33,18 +37,17 @@ module.exports = {
 
             const nextLevelXP = (memberData.level + 1) * 100;
 
-            const rankCard = new Rank()
+            const rankCard = new RankCardBuilder()
                 .setAvatar(target.displayAvatarURL({ extension: 'png' }))
                 .setCurrentXP(memberData.xp)
                 .setLevel(memberData.level)
-                .setRank(userRank, 'Rank')
+                .setRank(userRank)
                 .setRequiredXP(nextLevelXP)
-                .setUsername(target.username)
+                .setDisplayName(target.username)
                 .setStatus(member?.presence?.status || "offline")
-                .setProgressBar('#FFFFFF', 'COLOR')
-                .setBackground("IMAGE", "https://i.ibb.co/9N6y0sM/custom-bg.png");
+                .setBackground("https://i.ibb.co/9N6y0sM/custom-bg.png");
 
-            const cardBuffer = await rankCard.build();
+            const cardBuffer = await rankCard.build({ format: 'png' });
             const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
 
             await interaction.editReply({ files: [attachment] });
