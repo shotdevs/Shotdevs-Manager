@@ -10,7 +10,7 @@ module.exports = {
             return; // Exit if the system is disabled or not fully configured
         }
 
-        // --- Auto-Role Logic ---
+        // --- Auto-Role Logic (unchanged) ---
         if (config.welcomeRoleId) {
             const role = member.guild.roles.cache.get(config.welcomeRoleId);
             if (role) {
@@ -18,10 +18,10 @@ module.exports = {
             }
         }
 
-        // --- Welcome Message Logic ---
+        // --- Welcome Message Logic (Updated for Embed) ---
         const channel = member.guild.channels.cache.get(config.welcomeChannelId);
         if (channel) {
-            // Define all the placeholders and their values
+            // Placeholder logic is the same
             const placeholders = {
                 '{{memberName}}': member.displayName,
                 '{{memberTag}}': member.user.tag,
@@ -36,15 +36,22 @@ module.exports = {
                 '{{boostLevel}}': member.guild.premiumTier.toString().replace('Tier', 'Level'),
             };
 
-            // Replace all placeholders in the message
-            let welcomeMessage = config.welcomeMessage;
+            let welcomeText = config.welcomeMessage;
             for (const [key, value] of Object.entries(placeholders)) {
-                // Use a RegExp to replace all occurrences of the placeholder
-                welcomeMessage = welcomeMessage.replace(new RegExp(key, 'g'), value);
+                welcomeText = welcomeText.replace(new RegExp(key, 'g'), value || 'N/A');
             }
             
-            // Send the final message
-            channel.send(welcomeMessage).catch(err => console.error(`Failed to send welcome message:`, err));
+            // NEW: Create the embed
+            const welcomeEmbed = new EmbedBuilder()
+                .setColor(0xED4245) // Red color, as requested
+                .setTitle(`Welcome to ${member.guild.name}!`)
+                .setDescription(welcomeText) // Your custom message goes here
+                .setThumbnail(member.user.displayAvatarURL()) // Sets the new member's avatar on the side
+                .setFooter({ text: `We now have ${member.guild.memberCount} members` })
+                .setTimestamp();
+
+            // CHANGED: Send the embed instead of plain text
+            channel.send({ embeds: [welcomeEmbed] }).catch(err => console.error(`Failed to send welcome embed:`, err));
         }
     },
 };
