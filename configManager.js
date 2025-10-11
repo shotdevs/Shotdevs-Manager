@@ -1,32 +1,55 @@
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require('fs').promises;
+const path = require('path');
 
-const configPath = path.join(__dirname, 'guild_configs.json');
+// Path to store guild configurations
+const GUILD_CONFIGS_PATH = path.join(__dirname, 'guild_configs.json');
 
-function readConfigs() {
+// Initialize or load guild configurations
+let guildConfigs = {};
+
+// Load existing configurations
+async function loadConfigs() {
     try {
-        const data = fs.readFileSync(configPath, 'utf8');
-        return JSON.parse(data);
+        const data = await fs.readFile(GUILD_CONFIGS_PATH, 'utf8');
+        guildConfigs = JSON.parse(data);
     } catch (error) {
-        return {};
+        if (error.code !== 'ENOENT') {
+            console.error('Error loading guild configs:', error);
+        }
+        // If file doesn't exist, we'll start with empty configs
+        guildConfigs = {};
     }
 }
 
-function writeConfigs(data) {
-    fs.writeFileSync(configPath, JSON.stringify(data, null, 4));
+// Save configurations to file
+async function saveConfigs() {
+    try {
+        await fs.writeFile(GUILD_CONFIGS_PATH, JSON.stringify(guildConfigs, null, 2));
+    } catch (error) {
+        console.error('Error saving guild configs:', error);
+    }
 }
 
+// Load configs when the module is first required
+loadConfigs();
+
 module.exports = {
-    getConfig: function(guildId) {
-        const configs = readConfigs();
-        return configs[guildId] || {};
-    },
-    setConfig: function(guildId, key, value) {
-        const configs = readConfigs();
-        if (!configs[guildId]) {
-            configs[guildId] = {};
+    getConfig: async function(guildId) {
+        if (!guildConfigs[guildId]) {
+            guildConfigs[guildId] = {
+                reactionRoles: {}
+            };
+            await saveConfigs();
         }
-        configs[guildId][key] = value;
-        writeConfigs(configs);
+        return guildConfigs[guildId];
+    },
+
+    setConfig: async function(guildId, key, value) {
+        if (!guildConfigs[guildId]) {
+            guildConfigs[guildId] = {};
+        }
+        guildConfigs[guildId][key] = value;
+        await saveConfigs();
+        return value;
     }
 };

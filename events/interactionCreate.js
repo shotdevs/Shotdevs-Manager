@@ -1,57 +1,152 @@
-const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require('discord.js');
+const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const { getConfig } = require('../configManager');
 
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction, client) {
+        if (!interaction.isButton() && !interaction.isChatInputCommand()) return;
+
+        // --- SLASH COMMAND HANDLING ---
         if (interaction.isChatInputCommand()) {
             const command = client.commands.get(interaction.commandName);
             if (!command) return;
             try {
                 await command.execute(interaction);
             } catch (error) {
-                console.error(error);
-                await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-            }
-        } else if (interaction.isButton()) {
-            const { customId, guild } = interaction;
-            const guildConfig = getConfig(guild.id);
-            if (customId === 'create_support_ticket' || customId === 'create_bug_report_ticket') {
-                const category = guild.channels.cache.get(guildConfig.ticketCategoryId);
-                const staffRole = guild.roles.cache.get(guildConfig.staffRoleId);
-                if (!category || !staffRole) {
-                    return interaction.reply({ content: '❌ The ticket system is not configured. Please ask an admin to use `/ticket-config`.', ephemeral: true });
+                console.error(`Error executing ${interaction.commandName}`, error);
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply({ content: 'There was an error while executing this command!' });
+                } else {
+                    await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
                 }
-                await interaction.deferReply({ ephemeral: true });
-                const channelName = customId === 'create_support_ticket' ? `support-${interaction.user.username}` : `bug-${interaction.user.username}`;
-                const welcomeMessage = customId === 'create_support_ticket' ? `Welcome ${interaction.user}! Please describe your support issue.` : `Welcome ${interaction.user}! Please describe the bug you found in detail.`;
+            }
+            return;
+        }
+
+        // --- BUTTON HANDLING ---
+        if (interaction.isButton()) {
+            const { customId, guild, channel, user, member } = interaction;
+            const guildConfig = await getConfig(guild.id);
+            
+            const isTicketCreationButton = ['create_order_ticket', 'create_enquiry_ticket', 'create_support_ticket'].includes(customId);
+
+            // --- TICKET CREATION LOGIC ---
+            if (isTicketCreationButton) {
+                const staffRole = guild.roles.cache.get(guildConfig.staffRoleId);
+                let categoryId, channelName, ticketType;
+
+                if (customId === 'create_order_ticket') {
+                    categoryId = guildConfig.orderCategoryId;
+                    channelName = `order-${user.username}`;
+                    ticketType = 'Order';
+                } else if (customId === 'create_enquiry_ticket') {
+                    categoryId = guildConfig.enquiryCategoryId;
+                    channelName = `enquiry-${user.username}`;
+                    ticketType = 'Enquiry';
+                } else if (customId === 'create_support_ticket') {
+                    categoryId = guildConfig.supportCategoryId;
+                    channelName = `support-${user.username}`;
+                    ticketType = 'Support';
+                }
+
+                if (!categoryId || !staffRole) return interaction.reply({ content: '❌ Ticket system is not fully configured.', flags: ['Ephemeral'] });
+                const category = guild.channels.cache.get(categoryId);
+                if (!category) return interaction.reply({ content: '❌ The configured category for this ticket type does not exist.', flags: ['Ephemeral'] });
+
+                await interaction.deferReply({ flags: ['Ephemeral'] });
                 const ticketChannel = await guild.channels.create({
                     name: channelName,
                     type: ChannelType.GuildText,
                     parent: category,
+                    topic: `Ticket for ${user.tag}. User ID: ${user.id}`,
                     permissionOverwrites: [
                         { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                        { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                        { id: staffRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageMessages] },
-                    ],
+                        { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                        { id: staffRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageMessages] }
+                    ]
                 });
-                const ticketEmbed = new EmbedBuilder().setColor(0x57F287).setDescription(welcomeMessage);
-                const closeButton = new ButtonBuilder().setCustomId('close_ticket_button').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒');
-                const claimButton = new ButtonBuilder().setCustomId('claim_ticket_button').setLabel('Claim').setStyle(ButtonStyle.Success).setEmoji('🙋');
-                const row = new ActionRowBuilder().addComponents(closeButton, claimButton);
-                await ticketChannel.send({ content: `${staffRole}`, embeds: [ticketEmbed], components: [row] });
-                await interaction.editReply({ content: `Ticket created in ${ticketChannel}!`, ephemeral: true });
-            } else if (customId === 'close_ticket_button') {
-                await interaction.reply('Closing this ticket in 5 seconds...');
-                setTimeout(() => interaction.channel.delete(), 5000);
-            } else if (customId === 'claim_ticket_button') {
+
+                const ticketEmbed = new EmbedBuilder().setColor(0x5865F2).setTitle(`${ticketType} Ticket`).setDescription(`Welcome ${user}!\nA staff member will be with you shortly. Please describe your reason for opening this ticket in detail.`).setFooter({ text: `${guild.name} | Ticket System` }).setTimestamp();
+                // Use configurable labels if provided
+                const btnLabels = guildConfig.ticketButtonLabels || {};
+                const ticketButtons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('close_ticket_button').setLabel(btnLabels.close || 'Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+                    new ButtonBuilder().setCustomId('claim_ticket_button').setLabel(btnLabels.claim || 'Claim').setStyle(ButtonStyle.Success).setEmoji('🙋'),
+                    new ButtonBuilder().setCustomId('transcript_ticket_button').setLabel(btnLabels.transcript || 'Transcript').setStyle(ButtonStyle.Primary).setEmoji('📝')
+                );
+                await ticketChannel.send({ content: `${staffRole}`, embeds: [ticketEmbed], components: [ticketButtons] });
+                await interaction.editReply({ content: `Ticket created in ${ticketChannel}!` });
+            } 
+            // --- TICKET CLOSING LOGIC ---
+            else if (customId === 'close_ticket_button') {
+                await interaction.reply({ content: 'Saving transcript and closing ticket...', flags: [ 'Ephemeral' ] });
+                try {
+                    // Prefer a dedicated transcript channel if set, otherwise fall back to log channel
+                    const logChannelId = guildConfig.ticketTranscriptChannelId || guildConfig.ticketLogChannelId;
+                    const logChannel = guild.channels.cache.get(logChannelId);
+                    if (logChannel) {
+                        let transcript = `Ticket created by: ${channel.topic?.split('. User ID: ')[0].replace('Ticket for ', '') || 'Unknown User'}\n`;
+                        transcript += `User ID: ${channel.topic?.split('. User ID: ')[1] || 'Unknown'}\n`;
+                        transcript += `Ticket closed by: ${user.tag}\n\n`;
+                        const messages = await channel.messages.fetch({ limit: 100 });
+                        messages.reverse().forEach(msg => {
+                            const timestamp = msg.createdAt.toLocaleString('en-US', { timeZone: 'UTC' });
+                            transcript += `[${timestamp} UTC] ${msg.author.tag}: ${msg.content}\n`;
+                        });
+                        const buffer = Buffer.from(transcript, 'utf-8');
+                        const attachment = new AttachmentBuilder(buffer, { name: `${channel.name}-transcript.txt` });
+                        const logEmbed = new EmbedBuilder().setColor(0xFF474D).setTitle('Ticket Closed').addFields({ name: 'Ticket Name', value: channel.name, inline: true }, { name: 'Closed By', value: user.tag, inline: true }).setTimestamp();
+                        await logChannel.send({ embeds: [logEmbed], files: [attachment] });
+                    }
+                } catch (error) {
+                    console.error("Failed to log ticket:", error);
+                }
+
+                // Use configurable close delay (seconds) if provided
+                const delaySeconds = guildConfig.ticketCloseDelaySeconds ?? 5;
+                setTimeout(() => channel.delete(), Math.max(0, delaySeconds) * 1000);
+            }
+            // --- TICKET CLAIMING LOGIC ---
+            else if (customId === 'claim_ticket_button') {
                 await interaction.deferUpdate();
                 const originalEmbed = interaction.message.embeds[0];
-                const updatedEmbed = EmbedBuilder.from(originalEmbed).setFooter({ text: `Ticket claimed by ${interaction.user.username}` });
+                const updatedEmbed = EmbedBuilder.from(originalEmbed).setFooter({ text: `Ticket claimed by ${interaction.user.tag}` });
                 const closeButton = interaction.message.components[0].components[0];
                 const claimedButton = ButtonBuilder.from(interaction.component).setDisabled(true).setLabel('Claimed');
-                const updatedRow = new ActionRowBuilder().addComponents(closeButton, claimedButton);
+                const transcriptButton = interaction.message.components[0].components[2];
+                const updatedRow = new ActionRowBuilder().addComponents(closeButton, claimedButton, transcriptButton);
                 await interaction.message.edit({ embeds: [updatedEmbed], components: [updatedRow] });
+            }
+            // --- TRANSCRIPT LOGIC ---
+            else if (customId === 'transcript_ticket_button') {
+                await interaction.reply({ content: 'Saving transcript...', flags: [ 'Ephemeral' ] });
+                let transcript = `Transcript for ticket #${channel.name}\n\n`;
+                const messages = await channel.messages.fetch({ limit: 100 });
+                messages.reverse().forEach(msg => {
+                    const timestamp = msg.createdAt.toLocaleString('en-US', { timeZone: 'UTC' });
+                    transcript += `[${timestamp} UTC] ${msg.author.tag}: ${msg.content}\n`;
+                });
+                const buffer = Buffer.from(transcript, 'utf-8');
+                const attachment = new AttachmentBuilder(buffer, { name: `${channel.name}-transcript.txt` });
+                await user.send({ content: `Here is the transcript for your ticket, #${channel.name}.`, files: [attachment] }).catch(err => {
+                    interaction.followUp({ content: 'I could not DM you the transcript. Do you have DMs disabled?', flags: [ 'Ephemeral' ] });
+                });
+            }
+            // --- BUTTON ROLE LOGIC ---
+            else if (customId.startsWith('button_role_')) {
+                await interaction.deferReply({ flags: [ 'Ephemeral' ] });
+                const roleId = customId.split('_')[2];
+                const role = interaction.guild.roles.cache.get(roleId);
+                if (!role) {
+                    return interaction.editReply('This role no longer exists.');
+                }
+                if (member.roles.cache.has(role.id)) {
+                    await member.roles.remove(role);
+                    await interaction.editReply(`The **${role.name}** role has been removed.`);
+                } else {
+                    await member.roles.add(role);
+                    await interaction.editReply(`You have been given the **${role.name}** role.`);
+                }
             }
         }
     },
