@@ -14,8 +14,15 @@ module.exports = {
                 member.roles.add(role).catch(err => console.error(`Failed to add autorole:`, err));
             }
         }
+        // Determine welcome enablement (default to true if legacy config had a channel set)
+        const welcomeEnabled = typeof config.welcomeEnabled === 'boolean'
+            ? config.welcomeEnabled
+            : Boolean(config.welcomeChannelId);
+
         // If welcome system isn't fully configured, stop here (we already handled autorole)
-        if (!config.welcomeEnabled || !config.welcomeChannelId) return;
+        if (!welcomeEnabled || !config.welcomeChannelId) return;
+
+        const useWelcomeCard = typeof config.useWelcomeCard === 'boolean' ? config.useWelcomeCard : true;
 
         const channel = member.guild.channels.cache.get(config.welcomeChannelId);
         if (!channel) return;
@@ -45,7 +52,7 @@ module.exports = {
         };
 
         // Attempt to use WelcomeCard (pixel-musicard) when configured; otherwise fallback to embed
-        if (config.useWelcomeCard && typeof WelcomeCard === 'function') {
+        if (useWelcomeCard && typeof WelcomeCard === 'function') {
             try {
                 const card = await WelcomeCard({
                     username: member.user.username,

@@ -14,10 +14,25 @@ module.exports = {
                 await command.execute(interaction);
             } catch (error) {
                 console.error(`Error executing ${interaction.commandName}`, error);
+                
+                // Check if interaction is still valid and not already acknowledged
+                if (!interaction.isRepliable()) {
+                    console.log(`Interaction ${interaction.id} is no longer repliable`);
+                    return;
+                }
+                
                 if (interaction.deferred || interaction.replied) {
-                    await interaction.editReply({ content: 'There was an error while executing this command!' });
+                    try {
+                        await interaction.editReply({ content: 'There was an error while executing this command!' });
+                    } catch (editError) {
+                        console.error('Failed to edit reply:', editError);
+                    }
                 } else {
-                    await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+                    try {
+                        await interaction.reply({ content: 'There was an error while executing this command!', flags: ['Ephemeral'] });
+                    } catch (replyError) {
+                        console.error('Failed to reply to interaction:', replyError);
+                    }
                 }
             }
             return;

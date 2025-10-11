@@ -2,7 +2,9 @@
   "1105742461566988328": {
     "reactionRoles": {},
     "welcomeChannelId": "1425482818108264581",
-    "welcomeMessage": "not",
-    "welcomeEmbedColor": "<#1154453096664158239> 00E5FF"
+    "welcomeMessage": "Welcome to {{serverName}} {{memberMention}}!",
+    "welcomeEmbedColor": "<#1154453096664158239> 00E5FF",
+    "welcomeEnabled": true,
+    "useWelcomeCard": true
   }
 }
