@@ -6,16 +6,17 @@ module.exports = {
     async execute(member) {
         const config = await getConfig(member.guild.id);
 
-        if (!config.welcomeEnabled || !config.welcomeChannelId || !config.welcomeMessage) {
-            return; // Exit if the system is disabled or not fully configured
-        }
-
-        // --- Auto-Role Logic (unchanged) ---
+        // --- Auto-Role: assign regardless of welcome message settings ---
         if (config.welcomeRoleId) {
             const role = member.guild.roles.cache.get(config.welcomeRoleId);
             if (role) {
-                member.roles.add(role).catch(err => console.error(`Failed to add role:`, err));
+                member.roles.add(role).catch(err => console.error(`Failed to add autorole:`, err));
             }
+        }
+
+        // If welcome system isn't fully configured, still return after autorole
+        if (!config.welcomeEnabled || !config.welcomeChannelId || !config.welcomeMessage) {
+            return; // No welcome embed to send
         }
 
         // --- Welcome Message Logic (Updated for Embed) ---
@@ -32,8 +33,8 @@ module.exports = {
                 '{{serverName}}': member.guild.name,
                 '{{serverIcon}}': member.guild.iconURL(),
                 '{{memberCount}}': member.guild.memberCount.toString(),
-                '{{boostCount}}': member.guild.premiumSubscriptionCount.toString(),
-                '{{boostLevel}}': member.guild.premiumTier.toString().replace('Tier', 'Level'),
+                '{{boostCount}}': member.guild.premiumSubscriptionCount?.toString() || '0',
+                '{{boostLevel}}': (member.guild.premiumTier || '0').toString().replace('Tier', 'Level'),
             };
 
             let welcomeText = config.welcomeMessage;

@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+node_modules/
+=======
 # Node.js
 node_modules/
 npm-debug.log
@@ -53,3 +56,4 @@ pids
 /test-output/
 node_modules
 node_modules
+>>>>>>> d871c235ebde40d5ca6720593f043da75f4f48e4
