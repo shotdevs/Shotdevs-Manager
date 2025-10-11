@@ -7,18 +7,15 @@ module.exports = {
     async execute(member) {
         const config = await getConfig(member.guild.id);
 
-        if (!config.welcomeEnabled || !config.welcomeChannelId || !config.welcomeMessage) {
-            return; // Exit if the system is disabled or not fully configured
-        }
-
-        // --- Auto-Role Logic (unchanged) ---
+        // --- Auto-Role: assign regardless of welcome message settings ---
         if (config.welcomeRoleId) {
             const role = member.guild.roles.cache.get(config.welcomeRoleId);
             if (role) {
-                member.roles.add(role).catch(err => console.error(`Failed to add role:`, err));
+                member.roles.add(role).catch(err => console.error(`Failed to add autorole:`, err));
             }
         }
 
+<<<<<<< HEAD
         // --- Welcome Message Logic (Updated for Pixel Musicard) ---
         const channel = member.guild.channels.cache.get(config.welcomeChannelId);
         if (channel) {
@@ -42,6 +39,30 @@ module.exports = {
                     guildPosition: member.guild.memberCount,
                     discriminator: member.user.discriminator
                 });
+=======
+        // If welcome system isn't fully configured, still return after autorole
+        if (!config.welcomeEnabled || !config.welcomeChannelId || !config.welcomeMessage) {
+            return; // No welcome embed to send
+        }
+
+        // --- Welcome Message Logic (Updated for Embed) ---
+        const channel = member.guild.channels.cache.get(config.welcomeChannelId);
+        if (channel) {
+            // Placeholder logic is the same
+            const placeholders = {
+                '{{memberName}}': member.displayName,
+                '{{memberTag}}': member.user.tag,
+                '{{memberMention}}': member.toString(),
+                '{{memberID}}': member.id,
+                '{{memberAvatar}}': member.user.displayAvatarURL(),
+                '{{accountCreated}}': member.user.createdAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                '{{serverName}}': member.guild.name,
+                '{{serverIcon}}': member.guild.iconURL(),
+                '{{memberCount}}': member.guild.memberCount.toString(),
+                '{{boostCount}}': member.guild.premiumSubscriptionCount?.toString() || '0',
+                '{{boostLevel}}': (member.guild.premiumTier || '0').toString().replace('Tier', 'Level'),
+            };
+>>>>>>> c2bb3f1a910fd73b349454469ef86af6aac50e9e
 
                 // Create attachment
                 const attachment = new AttachmentBuilder(card, { 

@@ -41,5 +41,29 @@ module.exports = {
             .setDescription(`🔨 Successfully banned **${target.tag}**. Reason: ${reason}`);
 
         await interaction.reply({ embeds: [confirmationEmbed] });
+
+        // --- Moderation Log ---
+        try {
+            const configManager = require('../../configManager');
+            const guildConfig = await configManager.getConfig(interaction.guild.id);
+            const modlogChannelId = guildConfig && (guildConfig.modlogChannelId || guildConfig.modLogChannelId || guildConfig.moderationLogChannelId);
+            if (modlogChannelId) {
+                const modlogChannel = interaction.guild.channels.cache.get(modlogChannelId);
+                if (modlogChannel) {
+                    const logEmbed = new EmbedBuilder()
+                        .setColor(0xED4245)
+                        .setTitle('User Banned')
+                        .addFields(
+                            { name: 'User', value: `${target.tag} (${target.id})` },
+                            { name: 'Moderator', value: `${interaction.user.tag} (${interaction.user.id})` },
+                            { name: 'Reason', value: reason }
+                        )
+                        .setTimestamp();
+                    await modlogChannel.send({ embeds: [logEmbed] });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to log to moderation channel:', e);
+        }
     },
 };
