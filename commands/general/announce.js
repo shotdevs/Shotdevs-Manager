@@ -1,79 +1,53 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('announce')
-    .setDescription('Send an announcement embed to a channel')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .setDMPermission(false)
+    .setName("announce")
+    .setDescription("Send an announcement embed to a channel.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addStringOption(option =>
-      option
-        .setName('message')
-        .setDescription('Main announcement text')
-        .setRequired(true)
-    )
+      option.setName("title")
+        .setDescription("Title of the announcement")
+        .setRequired(false))
     .addStringOption(option =>
-      option
-        .setName('title')
-        .setDescription('Optional embed title')
-        .setRequired(false)
-    )
+      option.setName("message")
+        .setDescription("Main announcement message")
+        .setRequired(true))
     .addStringOption(option =>
-      option
-        .setName('color')
-        .setDescription('Optional hex color like #ff0000')
-        .setRequired(false)
-    )
+      option.setName("color")
+        .setDescription("Embed color in HEX (example: #ff0000)")
+        .setRequired(false))
     .addStringOption(option =>
-      option
-        .setName('image')
-        .setDescription('Optional image URL')
-        .setRequired(false)
-    )
+      option.setName("image")
+        .setDescription("Image URL to display in the embed")
+        .setRequired(false))
     .addChannelOption(option =>
-      option
-        .setName('channel')
-        .setDescription('Optional target channel')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-        .setRequired(false)
-    ),
-
+      option.setName("channel")
+        .setDescription("Channel to send the announcement in")
+        .setRequired(false)),
+  
   async execute(interaction) {
-    const announcementMessage = interaction.options.getString('message');
-    const title = interaction.options.getString('title');
-    const colorInput = interaction.options.getString('color');
-    const imageUrl = interaction.options.getString('image');
-    const targetChannelOption = interaction.options.getChannel('channel');
+    const title = interaction.options.getString("title") || "📢 Announcement";
+    const message = interaction.options.getString("message");
+    const color = interaction.options.getString("color") || "#ff0000";
+    const image = interaction.options.getString("image");
+    const channel = interaction.options.getChannel("channel") || interaction.channel;
 
-    const parsedHex = (value) => {
-      if (!value) return '#ff0000';
-      const match = value.match(/^#?[0-9a-fA-F]{6}$/);
-      if (!match) return '#ff0000';
-      return value.startsWith('#') ? value : `#${value}`;
-    };
-
-    const chosenColor = parsedHex(colorInput);
-
+    // Create Embed
     const embed = new EmbedBuilder()
-      .setColor(chosenColor)
-      .setDescription(announcementMessage)
-      .setFooter({ text: `📢 Announcement by ${interaction.user.username}` });
+      .setTitle(title)
+      .setDescription(message)
+      .setColor(color)
+      .setFooter({ text: `Announcement by ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
+      .setTimestamp();
 
-    if (title) {
-      embed.setTitle(title);
-    }
+    if (image) embed.setImage(image);
 
-    if (imageUrl && /^https?:\/\//i.test(imageUrl)) {
-      embed.setImage(imageUrl);
-    }
+    await channel.send({ embeds: [embed] });
 
-    const channelToSend = targetChannelOption ?? interaction.channel;
-
-    try {
-      await channelToSend.send({ embeds: [embed] });
-      await interaction.reply({ content: '✅ Announcement sent successfully!', ephemeral: true });
-    } catch (error) {
-      await interaction.reply({ content: '❌ I could not send the announcement. Please check my permissions and the target channel.', ephemeral: true });
-    }
-  },
+    await interaction.reply({
+      content: `✅ Announcement sent successfully in ${channel}!`,
+      ephemeral: true
+    });
+  }
 };
