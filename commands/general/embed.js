@@ -21,7 +21,8 @@ module.exports = {
       .filter(ch => ch.isTextBased())
       .map(ch => ({ label: ch.name, value: ch.id }));
 
-    if (!guildChannels.length) return interaction.reply({ content: 'No text channels found!', ephemeral: true });
+    if (!guildChannels.length)
+      return interaction.reply({ content: 'No text channels found!', ephemeral: true });
 
     const channelSelect = new StringSelectMenuBuilder()
       .setCustomId('select_channel')
@@ -30,7 +31,7 @@ module.exports = {
 
     const rowSelect = new ActionRowBuilder().addComponents(channelSelect);
 
-    // Initial embed data
+    // Embed default data
     let embedData = {
       channel: null,
       title: 'Embed Preview',
@@ -48,7 +49,7 @@ module.exports = {
       .setDescription(embedData.description)
       .setColor(embedData.color);
 
-    // Buttons for modals and actions
+    // Buttons for modals/actions
     const buttons = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('set_title').setLabel('Title').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('set_description').setLabel('Description').setStyle(ButtonStyle.Primary),
@@ -75,9 +76,12 @@ module.exports = {
 
       // Button actions
       if (i.isButton()) {
-        // Modals
+        // Modals for text inputs
         if (['set_title', 'set_description', 'set_author', 'set_footer'].includes(i.customId)) {
-          let modal = new ModalBuilder().setCustomId(`modal_${i.customId}`).setTitle(`Set ${i.customId.split('_')[1].toUpperCase()}`);
+          const modal = new ModalBuilder()
+            .setCustomId(`modal_${i.customId}`)
+            .setTitle(`Set ${i.customId.split('_')[1].toUpperCase()}`);
+
           const input = new TextInputBuilder()
             .setCustomId(i.customId)
             .setLabel(`Enter ${i.customId.split('_')[1]}`)
@@ -87,22 +91,19 @@ module.exports = {
           await i.showModal(modal);
         }
 
-        // Color
+        // Color modal (short input)
         if (i.customId === 'set_color') {
-          await i.reply({ content: 'Send hex color code (like `#00E5FF`)', ephemeral: true });
-          const msgFilter = m => m.author.id === interaction.user.id;
-          const collected = await i.channel.awaitMessages({ filter: msgFilter, max: 1, time: 30000 });
-          const color = collected.first()?.content;
-          if (!/^#([0-9A-F]{3}){1,2}$/i.test(color)) return i.followUp({ content: 'Invalid hex color.', ephemeral: true });
-          embedData.color = color;
-        }
+          const modal = new ModalBuilder()
+            .setCustomId('modal_set_color')
+            .setTitle('Set Embed Color');
 
-        // Image URL
-        if (i.customId === 'set_image') {
-          await i.reply({ content: 'Send the image URL', ephemeral: true });
-          const msgFilter = m => m.author.id === interaction.user.id;
-          const collected = await i.channel.awaitMessages({ filter: msgFilter, max: 1, time: 30000 });
-          embedData.image = collected.first()?.content || null;
+          const colorInput = new TextInputBuilder()
+            .setCustomId('set_color')
+            .setLabel('Hex color (#RRGGBB)')
+            .setStyle(TextInputStyle.Short);
+
+          modal.addComponents(new ActionRowBuilder().addComponents(colorInput));
+          await i.showModal(modal);
         }
 
         // Toggle timestamp
@@ -147,12 +148,18 @@ module.exports = {
       }
     });
 
-    // Handle modals
+    // Modal collector
     const modalCollector = interaction.channel.createModalSubmitCollector({ filter, time: 10 * 60 * 1000 });
     modalCollector.on('collect', async modal => {
       if (modal.customId.startsWith('modal_')) {
-        const field = modal.customId.split('_')[1]; // title, description, author, footer
-        embedData[field] = modal.fields.getTextInputValue(modal.customId);
+        const field = modal.customId.split('_')[1]; // title, description, author, footer, color
+        let value = modal.fields.getTextInputValue(modal.customId === 'modal_set_color' ? 'set_color' : modal.customId);
+        if (field === 'color' && !/^#([0-9A-F]{3}){1,2}$/i.test(value)) {
+          return modal.reply({ content: 'Invalid hex color!', ephemeral: true });
+        }
+        embedData[field] = value;
+
+        // Update preview
         const updatedEmbed = new EmbedBuilder()
           .setTitle(embedData.title)
           .setDescription(embedData.description)
@@ -161,6 +168,7 @@ module.exports = {
           .setAuthor(embedData.author ? { name: embedData.author } : null)
           .setFooter(embedData.footer ? { text: embedData.footer } : null)
           .setTimestamp(embedData.timestamp ? new Date() : null);
+
         await modal.update({ embeds: [updatedEmbed], components: [rowSelect, buttons] });
       }
     });
