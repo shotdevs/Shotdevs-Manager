@@ -5,6 +5,7 @@ module.exports = {
     .setName("announce")
     .setDescription("Send an announcement embed to a channel.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+<<<<<<< HEAD
     .addChannelOption(option =>
       option.setName("channel")
         .setDescription("Channel to send the announcement in")
@@ -19,6 +20,18 @@ module.exports = {
         .setDescription("Title of the announcement")
         .setRequired(false))
     .addStringOption(option =>
+=======
+    // ✅ MOVED THE REQUIRED 'MESSAGE' OPTION TO THE TOP
+    .addStringOption(option =>
+      option.setName("message")
+        .setDescription("Main announcement message")
+        .setRequired(true)) // This is the required option
+    .addStringOption(option =>
+      option.setName("title")
+        .setDescription("Title of the announcement")
+        .setRequired(false))
+    .addStringOption(option =>
+>>>>>>> ad6d358d0a86469eefd2e1be0de22b7f61a0a06b
       option.setName("color")
         .setDescription("Embed color in HEX (example: #ff0000)")
         .setRequired(false))
