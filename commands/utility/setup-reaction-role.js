@@ -31,16 +31,20 @@ module.exports = {
                 .setRequired(true))
         .addRoleOption(option =>
             option.setName('role2')
-                .setDescription('Optional second role'))
+                .setDescription('Optional second role')
+                .setRequired(false))
         .addStringOption(option =>
             option.setName('emoji2')
-                .setDescription('Emoji for the second role'))
+                .setDescription('Emoji for the second role')
+                .setRequired(false))
         .addRoleOption(option =>
             option.setName('role3')
-                .setDescription('Optional third role'))
+                .setDescription('Optional third role')
+                .setRequired(false))
         .addStringOption(option =>
             option.setName('emoji3')
-                .setDescription('Emoji for the third role')),
+                .setDescription('Emoji for the third role')
+                .setRequired(false)),
 
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });

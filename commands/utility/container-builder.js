@@ -13,7 +13,7 @@ const {
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('container-builder-pro')
+        .setName('container-builder')
         .setDescription('Build a custom container with multiple sections and text inputs.'),
 
     async execute(interaction) {
@@ -72,22 +72,15 @@ module.exports = {
                     return;
                 }
 
-                // Final container structure
-                const finalContainer = {
-                    type: 17, // Container Component
-                    components: sections
-                };
-
                 // Let the user know the public message is being sent
                 await i.update({
                     embeds: [new EmbedBuilder().setColor(0x00FF00).setDescription('Container finished! Sending the final message publicly...')],
                     components: [] // Remove buttons
                 });
 
-                // Send the final container to the channel
+                // Send the final message to the channel with all sections
                 await interaction.channel.send({
-                    flags: [MessageFlags.IsComponentsV2],
-                    components: [finalContainer]
+                    components: sections
                 });
 
                 // Stop the collector
@@ -146,21 +139,25 @@ module.exports = {
 
                     // Construct the section component
                     const newSection = {
-                        type: 9, // Section Component
+                        type: 1, // Action Row Component
                         components: [{
-                            type: 10, // Text Display
+                            type: 4, // Rich Text Component
                             content: content,
-                        }],
+                            components: []
+                        }]
                     };
 
-                    // If a button text and URL are provided, add it as an accessory
+                    // If a button text and URL are provided, add it as a separate action row
                     if (buttonText && buttonUrl) {
-                        newSection.accessory = {
-                            type: 2, // Button Component
-                            style: ButtonStyle.Link,
-                            label: buttonText,
-                            url: buttonUrl,
-                        };
+                        sections.push({
+                            type: 1, // Action Row Component
+                            components: [{
+                                type: 2, // Button Component
+                                style: ButtonStyle.Link,
+                                label: buttonText,
+                                url: buttonUrl
+                            }]
+                        });
                     }
 
                     // Add the newly created section to our sections array

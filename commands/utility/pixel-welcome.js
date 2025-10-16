@@ -11,21 +11,25 @@ module.exports = {
             opt
                 .setName('enabled')
                 .setDescription('Enable or disable the welcome card')
+                .setRequired(false)
         )
         .addChannelOption(opt =>
             opt
                 .setName('channel')
                 .setDescription('Channel where the welcome card should be sent')
+                .setRequired(false)
         )
         .addStringOption(opt =>
             opt
                 .setName('message')
                 .setDescription('Custom welcome message with placeholders (optional)')
+                .setRequired(false)
         )
         .addBooleanOption(opt =>
             opt
                 .setName('use_card')
                 .setDescription('Whether to use the pixel welcome card (default true)')
+                .setRequired(false)
         )
         .addStringOption(opt =>
             opt

@@ -1,18 +1,23 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("announce")
     .setDescription("Send an announcement embed to a channel.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-    .addStringOption(option =>
-      option.setName("title")
-        .setDescription("Title of the announcement")
-        .setRequired(false))
+    .addChannelOption(option =>
+      option.setName("channel")
+        .setDescription("Channel to send the announcement in")
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
     .addStringOption(option =>
       option.setName("message")
         .setDescription("Main announcement message")
         .setRequired(true))
+    .addStringOption(option =>
+      option.setName("title")
+        .setDescription("Title of the announcement")
+        .setRequired(false))
     .addStringOption(option =>
       option.setName("color")
         .setDescription("Embed color in HEX (example: #ff0000)")
@@ -20,34 +25,58 @@ module.exports = {
     .addStringOption(option =>
       option.setName("image")
         .setDescription("Image URL to display in the embed")
-        .setRequired(false))
-    .addChannelOption(option =>
-      option.setName("channel")
-        .setDescription("Channel to send the announcement in")
-        .setRequired(false)),
-  
-  async execute(interaction) {
-    const title = interaction.options.getString("title") || "📢 Announcement";
+        .setRequired(false)),  async execute(interaction) {
+    const channel = interaction.options.getChannel("channel");
     const message = interaction.options.getString("message");
+    const title = interaction.options.getString("title") || "📢 Announcement";
     const color = interaction.options.getString("color") || "#ff0000";
     const image = interaction.options.getString("image");
-    const channel = interaction.options.getChannel("channel") || interaction.channel;
 
-    // Create Embed
-    const embed = new EmbedBuilder()
-      .setTitle(title)
-      .setDescription(message)
-      .setColor(color)
-      .setFooter({ text: `Announcement by ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
-      .setTimestamp();
+    // Validate channel permissions
+    if (!channel.permissionsFor(interaction.guild.members.me).has(["SendMessages", "ViewChannel"])) {
+      return interaction.reply({
+        content: "❌ I don't have permission to send messages in that channel!",
+        ephemeral: true
+      });
+    }
 
-    if (image) embed.setImage(image);
+    try {
+      // Create Embed
+      const embed = new EmbedBuilder()
+        .setTitle(title)
+        .setDescription(message)
+        .setColor(color)
+        .setFooter({ 
+          text: `Announcement by ${interaction.user.tag}`, 
+          iconURL: interaction.user.displayAvatarURL() 
+        })
+        .setTimestamp();
 
-    await channel.send({ embeds: [embed] });
+      if (image) {
+        try {
+          embed.setImage(image);
+        } catch (error) {
+          return interaction.reply({
+            content: "❌ The provided image URL is invalid!",
+            ephemeral: true
+          });
+        }
+      }
 
-    await interaction.reply({
-      content: `✅ Announcement sent successfully in ${channel}!`,
-      ephemeral: true
-    });
+      // Send the announcement
+      await channel.send({ embeds: [embed] });
+
+      // Confirm to the user
+      await interaction.reply({
+        content: `✅ Announcement sent successfully in ${channel}!`,
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('Error sending announcement:', error);
+      await interaction.reply({
+        content: "❌ Failed to send the announcement. Please check my permissions and try again.",
+        ephemeral: true
+      });
+    }
   }
 };
