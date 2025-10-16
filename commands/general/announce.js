@@ -5,14 +5,15 @@ module.exports = {
     .setName("announce")
     .setDescription("Send an announcement embed to a channel.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    // ✅ MOVED THE REQUIRED 'MESSAGE' OPTION TO THE TOP
+    .addStringOption(option =>
+      option.setName("message")
+        .setDescription("Main announcement message")
+        .setRequired(true)) // This is the required option
     .addStringOption(option =>
       option.setName("title")
         .setDescription("Title of the announcement")
         .setRequired(false))
-    .addStringOption(option =>
-      option.setName("message")
-        .setDescription("Main announcement message")
-        .setRequired(true))
     .addStringOption(option =>
       option.setName("color")
         .setDescription("Embed color in HEX (example: #ff0000)")
