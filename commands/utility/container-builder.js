@@ -8,7 +8,18 @@ const {
     ButtonStyle,
     ComponentType,
     MessageFlags,
-    EmbedBuilder
+    EmbedBuilder,
+    ContainerBuilder,
+    TextDisplayBuilder,
+    StringSelectMenuBuilder,
+    SelectMenuOptionBuilder,
+    FileBuilder,
+    MediaGalleryBuilder,
+    MediaGalleryItemBuilder,
+    SeparatorBuilder,
+    SeparatorSpacingSize,
+    SectionBuilder,
+    ThumbnailBuilder
 } = require('discord.js');
 
 module.exports = {
@@ -18,39 +29,232 @@ module.exports = {
 
     async execute(interaction) {
         // --- 1. Initial Setup and Collector ---
+        try {
+            // An array to hold all the section components we build
+            const sections = [];
 
-        // An array to hold all the section components we build
-        const sections = [];
+            // Initial embed to guide the user
+            const editorEmbed = new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle('Container Builder Pro')
+                .setDescription('Your container is currently empty. Click the buttons below to add sections or create a sample container!')
+                .setFooter({ text: 'You have 5 minutes to build this container.' });
 
-        // Initial embed to guide the user
-        const editorEmbed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle('Container Builder Pro')
-            .setDescription('Your container is currently empty. Click the button below to add your first section!')
-            .setFooter({ text: 'You have 5 minutes to build this container.' });
+            // Initial buttons for the editor
+            const editorButtons = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('add_section')
+                        .setLabel('Add Section')
+                        .setStyle(ButtonStyle.Success)
+                        .setEmoji('➕'),
+                    new ButtonBuilder()
+                        .setCustomId('create_sample')
+                        .setLabel('Create Sample')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('📝'),
+                    new ButtonBuilder()
+                        .setCustomId('finish_container')
+                        .setLabel('Finish')
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('✅')
+                );
 
-        // Initial buttons for the editor
-        const editorButtons = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                .setCustomId('add_section')
-                .setLabel('Add Section')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('➕'),
-                new ButtonBuilder()
-                .setCustomId('finish_container')
-                .setLabel('Finish')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('✅')
-            );
+            // Send the initial reply which will be our "editor" message
+            const response = await interaction.reply({
+                embeds: [editorEmbed],
+                components: [editorButtons],
+                flags: MessageFlags.Ephemeral // Use flags instead of ephemeral
+            });
 
-        // Send the initial reply which will be our "editor" message
-        const editorMessage = await interaction.reply({
-            embeds: [editorEmbed],
-            components: [editorButtons],
-            ephemeral: true, // Set to true so only the user can see the editor
-            fetchReply: true,
-        });
+            // Create an interaction collector to listen for button clicks
+            const collector = response.createMessageComponentCollector({
+                componentType: ComponentType.Button,
+                time: 300000 // 5 minutes
+            });
+
+            // Handle button interactions
+            collector.on('collect', async (i) => {
+                try {
+                    if (i.customId === 'create_sample') {
+                        // Create a sample container with various components
+                        const container = new ContainerBuilder()
+                            .setAccentColor(9225410)
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent("Example components:")
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent("\nButtons")
+                            )
+                            .addActionRowComponents(
+                                new ActionRowBuilder()
+                                    .addComponents(
+                                        new ButtonBuilder()
+                                            .setStyle(ButtonStyle.Link)
+                                            .setLabel("Buttons that")
+                                            .setURL("https://google.com"),
+                                        new ButtonBuilder()
+                                            .setStyle(ButtonStyle.Primary)
+                                            .setLabel("you can")
+                                            .setCustomId("sample_button_1"),
+                                        new ButtonBuilder()
+                                            .setStyle(ButtonStyle.Secondary)
+                                            .setLabel("drag around")
+                                            .setCustomId("sample_button_2")
+                                    )
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent("\nSelect menus")
+                            )
+                            .addActionRowComponents(
+                                new ActionRowBuilder()
+                                    .addComponents(
+                                        new StringSelectMenuBuilder()
+                                            .setCustomId("sample_menu")
+                                            .setMaxValues(3)
+                                            .addOptions(
+                                                new SelectMenuOptionBuilder()
+                                                    .setLabel("Test selection")
+                                                    .setValue("test_value")
+                                                    .setDescription("test")
+                                                    .setDefault(true)
+                                                    .setEmoji("😜"),
+                                                new SelectMenuOptionBuilder()
+                                                    .setLabel("Other selection")
+                                                    .setValue("other_value")
+                                            )
+                                    )
+                            )
+                            .addSeparatorComponents(
+                                new SeparatorBuilder()
+                                    .setSpacing(SeparatorSpacingSize.Small)
+                                    .setDivider(true)
+                            )
+                            .addSectionComponents(
+                                new SectionBuilder()
+                                    .setButtonAccessory(
+                                        new ButtonBuilder()
+                                            .setStyle(ButtonStyle.Link)
+                                            .setLabel("Learn More")
+                                            .setURL("https://shotdevs.live")
+                                    )
+                                    .addTextDisplayComponents(
+                                        new TextDisplayBuilder()
+                                            .setContent("This is a sample section with a button accessory.")
+                                    )
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent("\nImages & Media")
+                            )
+                            .addMediaGalleryComponents(
+                                new MediaGalleryBuilder()
+                                    .addItems(
+                                        new MediaGalleryItemBuilder()
+                                            .setURL("https://avatars.githubusercontent.com/u/77593673?s=128"),
+                                    )
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent("\nFiles & Attachments")
+                            )
+                            .addFileComponents(
+                                new FileBuilder()
+                                    .setURL("attachment://example.pdf")
+                            )
+                            .addSeparatorComponents(
+                                new SeparatorBuilder()
+                                    .setSpacing(SeparatorSpacingSize.Medium)
+                                    .setDivider(true)
+                            )
+                            .addSectionComponents(
+                                new SectionBuilder()
+                                    .setThumbnailAccessory(
+                                        new ThumbnailBuilder()
+                                            .setURL("https://avatars.githubusercontent.com/u/77593673?s=128")
+                                    )
+                                    .addTextDisplayComponents(
+                                        new TextDisplayBuilder()
+                                            .setContent("This is a section with a thumbnail accessory. Perfect for user profiles or item displays!")
+                                    )
+                            )
+                            .addSeparatorComponents(
+                                new SeparatorBuilder()
+                                    .setSpacing(SeparatorSpacingSize.Large)
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder()
+                                    .setContent("**Rich Text Formatting Examples:**\n")
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder()
+                                    .setContent("• *Italic text* for emphasis\n• **Bold text** for strong emphasis\n• __Underlined text__ for highlighting\n• ~~Strikethrough~~ for crossed-out text\n• `Code blocks` for technical content\n• > Blockquotes for citations")
+                            );
+
+                        // Send the sample container
+                        await interaction.channel.send({
+                            components: [container]
+                        });
+
+                        // Update the editor message
+                        await i.update({
+                            embeds: [
+                                new EmbedBuilder()
+                                    .setColor(0x00FF00)
+                                    .setDescription('Sample container has been created!')
+                            ],
+                            components: [] // Remove the buttons
+                        });
+
+                        // Stop the collector
+                        collector.stop('completed');
+                        return;
+                    }
+
+                    if (i.customId === 'add_section') {
+                        // ... (rest of your existing add_section code)
+                    }
+
+                    if (i.customId === 'finish_container') {
+                        // ... (rest of your existing finish_container code)
+                    }
+                } catch (error) {
+                    console.error('Error handling button interaction:', error);
+                    await i.update({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor(0xFF0000)
+                                .setDescription('An error occurred while processing your request.')
+                        ],
+                        components: []
+                    }).catch(console.error);
+                }
+            });
+
+            // Handle collector end
+            collector.on('end', (collected, reason) => {
+                if (reason !== 'completed') {
+                    interaction.editReply({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor(0xFFCC00)
+                                .setTitle('Container Builder Timed Out')
+                                .setDescription('You took too long to respond. Please run the command again.')
+                        ],
+                        components: []
+                    }).catch(console.error);
+                }
+            });
+
+        } catch (error) {
+            console.error('Error in container-builder command:', error);
+            await interaction.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor(0xFF0000)
+                        .setDescription('An error occurred while setting up the container builder.')
+                ],
+                flags: MessageFlags.Ephemeral
+            }).catch(console.error);
+        }
 
         // Create an interaction collector to listen for button clicks on our editor message
         const collector = editorMessage.createMessageComponentCollector({
