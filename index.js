@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 const deployCommands = require('./deploy.js');
+const express = require('express');
 
 const client = new Client({ 
     intents: [
@@ -18,39 +19,28 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// --- Command Handler ---
+// Command & Event Handlers (Unchanged)
 client.commands = new Collection();
-
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
-
 for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
     if (!fs.lstatSync(commandsPath).isDirectory()) continue;
-
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
-
         if ('data' in command && 'execute' in command) {
             command.category = folder;
             client.commands.set(command.data.name, command);
-            console.log(`[LOAD] Command loaded: ${command.data.name}`);
-        } else {
-            console.log(`[WARN] Command not loaded: ${file}`);
         }
     }
 }
-
-// --- Event Handler ---
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-
 for (const file of eventFiles) {
     const filePath = path.join(eventsPath, file);
     const event = require(filePath);
-
     if (event.once) {
         client.once(event.name, (...args) => event.execute(...args, client));
     } else {
@@ -61,48 +51,42 @@ for (const file of eventFiles) {
 // --- Main Startup Logic ---
 async function start() {
     try {
-        // --- MongoDB ---
         await mongoose.connect(process.env.MONGO_URI);
         console.log('✅ Connected to MongoDB');
 
-        // --- Deploy slash commands ---
         await deployCommands();
-
-        // --- Discord login ---
         await client.login(process.env.DISCORD_TOKEN);
+        console.log(`✅ Logged in as ${client.user.tag}`);
 
-        // --- Express Web Server ---
-        const express = require('express');
-        const GuildConfig = require('./models/GuildConfig');
-        const MemberProfile = require('./models/MemberProfile');
+        // --- SIMPLIFIED Express Web Server ---
         const app = express();
         const port = process.env.PORT || 3000;
 
         app.set('view engine', 'ejs');
         app.set('views', path.join(__dirname, 'views'));
+        app.use(express.static(path.join(__dirname, 'public')));
 
-        app.get('/', (req, res) => res.render('index'));
-
-        app.get('/api/guilds', async (req, res) => {
-            try {
-                const guilds = await GuildConfig.find();
-                res.json(guilds);
-            } catch (error) {
-                res.status(500).json({ message: error.message });
-            }
+        // --- WEBSITE ROUTES ---
+        app.get('/', (req, res) => {
+            res.render('index', {
+                botName: "Shotdevs",
+                botDescription: "The official management & automation bot for the Shotdevs development server.",
+                botLogoUrl: "https://media.discordapp.net/attachments/1426107282248306798/1429850185164394739/f5ad4fbfc9a5455cc4039bbd0d05444e.png?ex=68f7a341&is=68f651c1&hm=080bd8e8ddfb524921dfed574cb5db689558d3388b36be5518b4632385f2816f&=&format=webp&quality=lossless&width=570&height=57-0",
+                companyWebsiteUrl: "https://shotdevs.live/",
+                companyProjectsUrl: "#",
+                footerText: "Shotdevs"
+            });
         });
-
-        app.get('/api/members', async (req, res) => {
-            try {
-                const members = await MemberProfile.find();
-                res.json(members);
-            } catch (error) {
-                res.status(500).json({ message: error.message });
-            }
-        });
+        
+        // Placeholder routes for other pages
+        app.get('/staff', (req, res) => res.send('Staff page is under construction.'));
+        app.get('/rules', (req, res) => res.send('Rules page is under construction.'));
+        app.get('/media', (req, res) => res.send('Media page is under construction.'));
+        app.get('/announcements', (req, res) => res.send('Announcements page is under construction.'));
+        app.get('/status', (req, res) => res.send('Status page is under construction.'));
 
         app.listen(port, () => {
-            console.log(`✅ Website listening on http://localhost:${port}`);
+            console.log(`✅ Website listening on port ${port}`);
         });
 
     } catch (error) {
