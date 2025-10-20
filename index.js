@@ -48,7 +48,6 @@ for (const file of eventFiles) {
     }
 }
 
-// --- Main Startup Logic ---
 async function start() {
     try {
         await mongoose.connect(process.env.MONGO_URI);
@@ -58,27 +57,24 @@ async function start() {
         await client.login(process.env.DISCORD_TOKEN);
         console.log(`✅ Logged in as ${client.user.tag}`);
 
-        // --- SIMPLIFIED Express Web Server ---
         const app = express();
         const port = process.env.PORT || 3000;
 
         app.set('view engine', 'ejs');
-        app.set('views', path.join(__dirname, 'views'));
+        app.set('views', path.join(__name, 'views'));
         app.use(express.static(path.join(__dirname, 'public')));
 
-        // --- WEBSITE ROUTES ---
         app.get('/', (req, res) => {
             res.render('index', {
                 botName: "Shotdevs",
                 botDescription: "The official management & automation bot for the Shotdevs development server.",
-                botLogoUrl: "https://media.discordapp.net/attachments/1426107282248306798/1429850185164394739/f5ad4fbfc9a5455cc4039bbd0d05444e.png?ex=68f7a341&is=68f651c1&hm=080bd8e8ddfb524921dfed574cb5db689558d3388b36be5518b4632385f2816f&=&format=webp&quality=lossless&width=570&height=57-0",
+                botLogoUrl: "https://media.discordapp.net/attachments/1426107282248306798/1429850185164394739/f5ad4fbfc9a5455cc4039bbd0d05444e.png?ex=68f7a341&is=68f651c1&hm=080bd8e8ddfb524921dfed574cb5db689558d3388b36be5518b4632385f2816f&=&format=webp&quality=lossless&width=570&height=570",
                 companyWebsiteUrl: "https://shotdevs.live/",
                 companyProjectsUrl: "#",
                 footerText: "Shotdevs"
             });
         });
         
-        // Placeholder routes for other pages
         app.get('/staff', (req, res) => res.send('Staff page is under construction.'));
         app.get('/rules', (req, res) => res.send('Rules page is under construction.'));
         app.get('/media', (req, res) => res.send('Media page is under construction.'));
