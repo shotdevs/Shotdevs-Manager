@@ -2,6 +2,7 @@ const { REST, Routes } = require('discord.js');
 const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv').config();
+const Logger = require('./utils/logger');
 
 // This function will be exported and called from index.js
 async function deployCommands() {
@@ -32,18 +33,18 @@ async function deployCommands() {
             throw new Error('CLIENT_ID is not set in environment variables');
         }
 
-        console.log(`Started refreshing ${commands.length} application (/) commands.`);
-        console.log('Commands to be registered:', commands.map(cmd => cmd.name).join(', '));
+        Logger.command(`Started refreshing ${commands.length} application (/) commands`);
+        Logger.command(`Commands to be registered: ${commands.map(cmd => cmd.name).join(', ')}`);
 
         const data = await rest.put(
             Routes.applicationCommands(process.env.CLIENT_ID),
             { body: commands },
         );
 
-        console.log(`✅ Successfully deployed ${data.length} application (/) commands.`);
-        console.log('Registered commands:', data.map(cmd => cmd.name).join(', '));
+        Logger.success(`Successfully deployed ${data.length} application (/) commands`);
+        Logger.command(`Registered commands: ${data.map(cmd => cmd.name).join(', ')}`);
     } catch (error) {
-        console.error('❌ Error deploying commands:', error.message);
+        Logger.error(`Error deploying commands: ${error.message}`);
         throw error; // Re-throw to handle in the calling function
     }
 };
@@ -51,24 +52,14 @@ async function deployCommands() {
 // Export the function for use in other files
 module.exports = deployCommands;
 
-// If this file is run directly (not imported), execute deployCommands
-if (require.main === module) {
-    console.log('Deploying commands...');
-    deployCommands()
-        .then(() => console.log('Command deployment completed.'))
-        .catch(error => {
-            console.error('Failed to deploy commands:', error);
-            process.exit(1);
-        });
-}
-
 // When running this file directly (node deploy.js)
 if (require.main === module) {
-    console.log('🚀 Deploying commands...');
+    console.log('\n━━━━━━━━━━━━ DEPLOYING COMMANDS ━━━━━━━━━━━━');
     deployCommands().then(() => {
-        console.log('✅ Command deployment complete!');
+        Logger.success('Command deployment complete!');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     }).catch(error => {
-        console.error('❌ Command deployment failed:', error);
+        Logger.error(`Command deployment failed: ${error}`);
         process.exit(1);
     });
 }

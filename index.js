@@ -6,6 +6,8 @@ require('dotenv').config();
 
 const deployCommands = require('./deploy.js');
 const express = require('express');
+const LicenseManager = require('./utils/LicenseManager');
+const Logger = require('./utils/logger');
 
 const client = new Client({ 
     intents: [
@@ -50,12 +52,38 @@ for (const file of eventFiles) {
 
 async function start() {
     try {
+        // Print startup banner
+        console.log('\n━━━━━━━━━━━━━━━━ SHOTDEVS MANAGER ━━━━━━━━━━━━━━━━');
+        
+        // 1. License Verification
+        Logger.license('Verifying license...');
+        const licenseManager = new LicenseManager(
+            process.env.LICENSE_API_BASE_URL,
+            process.env.CLIENT_ID
+        );
+
+        const verificationResult = await licenseManager.verifyLicense(process.env.LICENSE_KEY);
+        if (!verificationResult.success) {
+            Logger.license(`${verificationResult.message}`, true);
+            Logger.error('Bot will not start due to a failed license verification.');
+            process.exit(1);
+        }
+        Logger.license(verificationResult.message);
+
+        // Start periodic license checks (every 24 hours)
+        licenseManager.startPeriodicCheck(process.env.LICENSE_KEY, 24 * 60 * 60 * 1000, (errorMessage) => {
+            Logger.license(errorMessage, true);
+            Logger.error('License has become invalid. Shutting down...');
+            process.exit(1);
+        });
+
+        // 2. Normal Startup Sequence
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+        Logger.database('Connected to MongoDB');
 
         await deployCommands();
         await client.login(process.env.DISCORD_TOKEN);
-        console.log(`✅ Logged in as ${client.user.tag}`);
+        Logger.bot(`Logged in as ${client.user.tag}`);
 
         const app = express();
         const port = process.env.PORT || 3000;
@@ -75,18 +103,14 @@ async function start() {
             });
         });
         
-        app.get('/staff', (req, res) => res.send('Staff page is under construction.'));
-        app.get('/rules', (req, res) => res.send('Rules page is under construction.'));
-        app.get('/media', (req, res) => res.send('Media page is under construction.'));
-        app.get('/announcements', (req, res) => res.send('Announcements page is under construction.'));
-        app.get('/status', (req, res) => res.send('Status page is under construction.'));
-
         app.listen(port, () => {
-            console.log(`✅ Website listening on port ${port}`);
+            Logger.web(`Website listening on port ${port}`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
         });
 
     } catch (error) {
-        console.error('❌ Failed to start the bot:', error);
+        Logger.error(`Failed to start the bot: ${error}`);
+        process.exit(1);
     }
 }
 
