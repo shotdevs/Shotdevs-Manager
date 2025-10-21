@@ -27,14 +27,19 @@ async function deployCommands() {
     try {
         // Validate environment variables
         if (!process.env.DISCORD_TOKEN) {
-            throw new Error('DISCORD_TOKEN is not set in environment variables');
+            Logger.error('DISCORD_TOKEN is not set in environment variables');
+            process.exit(1);
         }
         if (!process.env.CLIENT_ID) {
-            throw new Error('CLIENT_ID is not set in environment variables');
+            Logger.error('CLIENT_ID is not set in environment variables');
+            process.exit(1);
         }
 
         Logger.command(`Started refreshing ${commands.length} application (/) commands`);
-        Logger.command(`Commands to be registered: ${commands.map(cmd => cmd.name).join(', ')}`);
+        Logger.command('Commands to be registered:');
+        commands.forEach(cmd => {
+            Logger.command(`  • ${cmd.name}`);
+        });
 
         const data = await rest.put(
             Routes.applicationCommands(process.env.CLIENT_ID),
@@ -42,12 +47,12 @@ async function deployCommands() {
         );
 
         Logger.success(`Successfully deployed ${data.length} application (/) commands`);
-        Logger.command(`Registered commands: ${data.map(cmd => cmd.name).join(', ')}`);
+
     } catch (error) {
         Logger.error(`Error deploying commands: ${error.message}`);
         throw error; // Re-throw to handle in the calling function
     }
-};
+}
 
 // Export the function for use in other files
 module.exports = deployCommands;

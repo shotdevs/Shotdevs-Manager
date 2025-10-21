@@ -1,0 +1,151 @@
+const {
+    SlashCommandBuilder,
+    ActionRowBuilder,
+    StringSelectMenuBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ComponentType
+} = require('discord.js');
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('help')
+        .setDescription('Lists all available commands using modern components.'),
+    async execute(interaction) {
+        const { client } = interaction;
+        const commands = client.commands;
+        const categories = {};
+
+        // Group commands by category
+        commands.forEach(command => {
+            const category = command.category || 'General'; // Default to 'General'
+            if (!categories[category]) {
+                categories[category] = [];
+            }
+            categories[category].push(command);
+        });
+
+        const categoryNames = Object.keys(categories);
+        const botAvatarURL = client.user.displayAvatarURL();
+
+        // ---- Build Re-usable Components with Builders ----
+
+        // 1. Category Select Menu
+        const categorySelectMenu = new StringSelectMenuBuilder()
+            .setCustomId('help-category-select')
+            .setPlaceholder('Select a category to view commands')
+            .addOptions(
+                categoryNames.map(category => ({
+                    label: category.charAt(0).toUpperCase() + category.slice(1),
+                    value: category,
+                    emoji: '📂'
+                }))
+            );
+
+        // 2. Website Link Button
+        const websiteButton = new ButtonBuilder()
+            .setLabel('Our Website')
+            .setURL('https://shotdevs.live')
+            .setStyle(ButtonStyle.Link);
+
+        // 3. Create Action Rows to hold the interactive components
+        const selectRow = new ActionRowBuilder().addComponents(categorySelectMenu);
+        const buttonRow = new ActionRowBuilder().addComponents(websiteButton);
+
+
+        // ---- Construct the Initial Message Payload ----
+
+        // Get the first category's commands for the initial display
+        const initialCategory = categoryNames[0];
+        const initialCommands = categories[initialCategory]
+            .map(cmd => `</${cmd.data.name}:${cmd.id}> - ${cmd.data.description}`)
+            .join('\n');
+        
+        // The text content will be a Text Display component
+        const initialMarkdown = `### ${initialCategory.charAt(0).toUpperCase() + initialCategory.slice(1)} Commands\n${initialCommands}`;
+
+        // Manually build the component structure
+        const initialComponents = [{
+            type: 17, // Container
+            children: [
+                {
+                    type: 11, // Thumbnail
+                    url: botAvatarURL,
+                },
+                {
+                    type: 10, // Text Display
+                    markdown: initialMarkdown,
+                },
+                // We convert our discord.js builders to JSON to include them
+                selectRow.toJSON(),
+                buttonRow.toJSON(),
+            ]
+        }];
+
+        const message = await interaction.reply({
+            components: initialComponents,
+            ephemeral: true
+        });
+
+        // ---- Set up the Collector to handle interactions ----
+
+        const collector = message.createMessageComponentCollector({
+            componentType: ComponentType.StringSelect,
+            time: 90000 // 90 seconds
+        });
+
+        collector.on('collect', async i => {
+            const selectedCategory = i.values[0];
+            const categoryCommands = categories[selectedCategory]
+                .map(cmd => `</${cmd.data.name}:${cmd.id}> - ${cmd.data.description}`)
+                .join('\n');
+            
+            const updatedMarkdown = `### ${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Commands\n${categoryCommands}`;
+
+            // We need to rebuild the entire container structure for the update
+            const updatedComponents = [{
+                type: 17, // Container
+                children: [
+                    {
+                        type: 11, // Thumbnail
+                        url: botAvatarURL,
+                    },
+                    {
+                        type: 10, // Text Display
+                        markdown: updatedMarkdown,
+                    },
+                    selectRow.toJSON(),
+                    buttonRow.toJSON(),
+                ]
+            }];
+
+            await i.update({ components: updatedComponents });
+        });
+
+        // Disable the select menu when the collector times out
+        collector.on('end', async (collected) => {
+            // Get the last text displayed before timeout
+            const lastInteraction = collected.last();
+            let lastMarkdown = initialMarkdown;
+            if (lastInteraction) {
+                // Access the markdown from the component data of the last interaction's message
+                lastMarkdown = lastInteraction.message.components[0].children[1].markdown;
+            }
+
+            const disabledSelect = categorySelectMenu.setDisabled(true);
+            const disabledSelectRow = new ActionRowBuilder().addComponents(disabledSelect);
+
+            const finalComponents = [{
+                type: 17, // Container
+                children: [
+                    { type: 11, url: botAvatarURL },
+                    { type: 10, markdown: lastMarkdown },
+                    disabledSelectRow.toJSON(),
+                    buttonRow.toJSON(),
+                ]
+            }];
+            
+            await message.edit({ components: finalComponents });
+        });
+    },
+};
