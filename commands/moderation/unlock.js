@@ -1,4 +1,9 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const {
+    container,
+    section,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -15,6 +20,16 @@ module.exports = {
       SendMessages: true,
     });
 
-    await interaction.reply(`🔓 ${channel} has been unlocked!`);
+    await replyComponentsV2(interaction, {
+        components: [
+            container({
+                components: [
+                    section({
+                        content: `🔓 ${channel} has been unlocked!`
+                    })
+                ]
+            })
+        ]
+    });
   },
 };

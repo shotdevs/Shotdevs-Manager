@@ -1,5 +1,11 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
 const Level = require("../../models/Level");
+const {
+    container,
+    section,
+    separator,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -29,13 +35,24 @@ module.exports = {
       return `**#${skip + i + 1}** — ${user ? user.username : "Unknown"} | Level **${u.level}**, XP **${u.xp}**`;
     }));
 
-    const embed = new EmbedBuilder()
-      .setTitle(`🏆 ${interaction.guild.name} Leaderboard`)
-      .setDescription(desc.join("\n") || 'No users found.')
-      .setColor("#FF4D4D")
-      .setFooter({ text: `Page ${page} of ${totalPages}` })
-      .setTimestamp();
-
-    await interaction.reply({ embeds: [embed] });
+    await replyComponentsV2(interaction, {
+      components: [
+        container({
+          components: [
+            section({
+              content: `# 🏆 ${interaction.guild.name} Leaderboard`
+            }),
+            separator(),
+            section({
+              content: desc.join("\n") || 'No users found.'
+            }),
+            separator(),
+            section({
+              content: `**Page ${page} of ${totalPages}**`
+            })
+          ]
+        })
+      ]
+    });
   }
 };

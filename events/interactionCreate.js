@@ -1,5 +1,13 @@
-const { Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
+const { Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder } = require('discord.js');
 const { getConfig } = require('../configManager');
+const {
+    container,
+    section,
+    separator,
+    button,
+    actionRow,
+    sendComponentsV2Message
+} = require('../utils/componentsV2Builder');
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -81,15 +89,45 @@ module.exports = {
                     ]
                 });
 
-                const ticketEmbed = new EmbedBuilder().setColor(0x5865F2).setTitle(`${ticketType} Ticket`).setDescription(`Welcome ${user}!\nA staff member will be with you shortly. Please describe your reason for opening this ticket in detail.`).setFooter({ text: `${guild.name} | Ticket System` }).setTimestamp();
-                // Use configurable labels if provided
+                // Build Components V2 ticket creation message
                 const btnLabels = guildConfig.ticketButtonLabels || {};
-                const ticketButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('close_ticket_button').setLabel(btnLabels.close || 'Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-                    new ButtonBuilder().setCustomId('claim_ticket_button').setLabel(btnLabels.claim || 'Claim').setStyle(ButtonStyle.Success).setEmoji('🙋'),
-                    new ButtonBuilder().setCustomId('transcript_ticket_button').setLabel(btnLabels.transcript || 'Transcript').setStyle(ButtonStyle.Primary).setEmoji('📝')
-                );
-                await ticketChannel.send({ content: `${staffRole}`, embeds: [ticketEmbed], components: [ticketButtons] });
+                await sendComponentsV2Message(interaction.client, ticketChannel.id, {
+                    content: `${staffRole}`,
+                    components: [
+                        container({
+                            components: [
+                                section({
+                                    content: `# ${ticketType} Ticket\n\nWelcome ${user}!\nA staff member will be with you shortly. Please describe your reason for opening this ticket in detail.`
+                                }),
+                                separator(),
+                                section({
+                                    content: `**${guild.name}** | Ticket System`
+                                }),
+                                separator(),
+                                actionRow([
+                                    button({
+                                        custom_id: 'close_ticket_button',
+                                        label: btnLabels.close || 'Close',
+                                        style: 4, // Danger (red)
+                                        emoji: '🔒'
+                                    }),
+                                    button({
+                                        custom_id: 'claim_ticket_button',
+                                        label: btnLabels.claim || 'Claim',
+                                        style: 3, // Success (green)
+                                        emoji: '🙋'
+                                    }),
+                                    button({
+                                        custom_id: 'transcript_ticket_button',
+                                        label: btnLabels.transcript || 'Transcript',
+                                        style: 1, // Primary (blue)
+                                        emoji: '📝'
+                                    })
+                                ])
+                            ]
+                        })
+                    ]
+                });
                 await interaction.editReply({ content: `Ticket created in ${ticketChannel}!` });
             } 
             // --- TICKET CLOSING LOGIC ---
@@ -110,8 +148,24 @@ module.exports = {
                         });
                         const buffer = Buffer.from(transcript, 'utf-8');
                         const attachment = new AttachmentBuilder(buffer, { name: `${channel.name}-transcript.txt` });
-                        const logEmbed = new EmbedBuilder().setColor(0xFF474D).setTitle('Ticket Closed').addFields({ name: 'Ticket Name', value: channel.name, inline: true }, { name: 'Closed By', value: user.tag, inline: true }).setTimestamp();
-                        await logChannel.send({ embeds: [logEmbed], files: [attachment] });
+                        
+                        // Send Components V2 log message
+                        await sendComponentsV2Message(interaction.client, logChannel.id, {
+                            components: [
+                                container({
+                                    components: [
+                                        section({
+                                            content: '# Ticket Closed'
+                                        }),
+                                        separator(),
+                                        section({
+                                            content: `**Ticket Name:** ${channel.name}\n**Closed By:** ${user.tag}`
+                                        })
+                                    ]
+                                })
+                            ],
+                            files: [attachment]
+                        });
                     }
                 } catch (error) {
                     console.error("Failed to log ticket:", error);
@@ -124,13 +178,54 @@ module.exports = {
             // --- TICKET CLAIMING LOGIC ---
             else if (customId === 'claim_ticket_button') {
                 await interaction.deferUpdate();
-                const originalEmbed = interaction.message.embeds[0];
-                const updatedEmbed = EmbedBuilder.from(originalEmbed).setFooter({ text: `Ticket claimed by ${interaction.user.tag}` });
-                const closeButton = interaction.message.components[0].components[0];
-                const claimedButton = ButtonBuilder.from(interaction.component).setDisabled(true).setLabel('Claimed');
-                const transcriptButton = interaction.message.components[0].components[2];
-                const updatedRow = new ActionRowBuilder().addComponents(closeButton, claimedButton, transcriptButton);
-                await interaction.message.edit({ embeds: [updatedEmbed], components: [updatedRow] });
+                
+                // Rebuild the entire container with updated footer and disabled claim button
+                const ticketType = channel.name.split('-')[0]; // Extract ticket type from channel name
+                const originalMessage = interaction.message;
+                const btnLabels = guildConfig.ticketButtonLabels || {};
+                
+                // Get user mention from original message content
+                const userMention = originalMessage.content.match(/<@&?\d+>/)?.[0] || '';
+                
+                await interaction.message.edit({
+                    content: userMention,
+                    flags: 1 << 15, // IS_COMPONENTS_V2
+                    components: [
+                        container({
+                            components: [
+                                section({
+                                    content: `# ${ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} Ticket\n\nWelcome!\nA staff member will be with you shortly. Please describe your reason for opening this ticket in detail.`
+                                }),
+                                separator(),
+                                section({
+                                    content: `**${guild.name}** | Ticket System\n**Ticket claimed by:** ${interaction.user.tag}`
+                                }),
+                                separator(),
+                                actionRow([
+                                    button({
+                                        custom_id: 'close_ticket_button',
+                                        label: btnLabels.close || 'Close',
+                                        style: 4,
+                                        emoji: '🔒'
+                                    }),
+                                    button({
+                                        custom_id: 'claim_ticket_button',
+                                        label: 'Claimed',
+                                        style: 3,
+                                        emoji: '🙋',
+                                        disabled: true
+                                    }),
+                                    button({
+                                        custom_id: 'transcript_ticket_button',
+                                        label: btnLabels.transcript || 'Transcript',
+                                        style: 1,
+                                        emoji: '📝'
+                                    })
+                                ])
+                            ]
+                        })
+                    ]
+                });
             }
             // --- TRANSCRIPT LOGIC ---
             else if (customId === 'transcript_ticket_button') {

@@ -1,4 +1,11 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const {
+    container,
+    section,
+    separator,
+    thumbnail,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -11,21 +18,33 @@ module.exports = {
     async execute(interaction) {
         const user = interaction.options.getUser('user') || interaction.user;
         const member = await interaction.guild.members.fetch(user.id);
+        const userAvatar = user.displayAvatarURL({ size: 128 });
 
-        const embed = new EmbedBuilder()
-            .setColor(member.displayHexColor || 0x5865F2)
-            .setTitle(user.username)
-            .setThumbnail(user.displayAvatarURL({ dynamic: true }))
-            .addFields(
-                { name: 'User Tag', value: user.tag, inline: true },
-                { name: 'User ID', value: user.id, inline: true },
-                { name: 'Bot Account', value: user.bot ? 'Yes' : 'No', inline: true },
-                { name: 'Joined Server', value: `<t:${parseInt(member.joinedTimestamp / 1000)}:R>`, inline: true },
-                { name: 'Account Created', value: `<t:${parseInt(user.createdTimestamp / 1000)}:R>`, inline: true },
-                { name: 'Roles', value: member.roles.cache.map(r => r.toString()).join(', ') || 'None' }
-            )
-            .setTimestamp();
+        // Format roles list
+        const roles = member.roles.cache
+            .filter(r => r.id !== interaction.guild.id) // Exclude @everyone
+            .map(r => r.toString())
+            .join(', ') || 'None';
 
-        await interaction.reply({ embeds: [embed] });
+        await replyComponentsV2(interaction, {
+            components: [
+                container({
+                    components: [
+                        section({
+                            content: `# ${user.username}\nUser Information`,
+                            accessory: thumbnail(userAvatar)
+                        }),
+                        separator(),
+                        section({
+                            content: `**User Tag:** ${user.tag}\n**User ID:** ${user.id}\n**Bot Account:** ${user.bot ? 'Yes' : 'No'}\n**Joined Server:** <t:${parseInt(member.joinedTimestamp / 1000)}:R>\n**Account Created:** <t:${parseInt(user.createdTimestamp / 1000)}:R>`
+                        }),
+                        separator(),
+                        section({
+                            content: `**Roles:** ${roles}`
+                        })
+                    ]
+                })
+            ]
+        });
     },
 };

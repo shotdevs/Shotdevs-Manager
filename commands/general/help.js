@@ -1,10 +1,13 @@
+const { SlashCommandBuilder } = require('discord.js');
 const {
-    SlashCommandBuilder,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle
-} = require('discord.js');
+    container,
+    section,
+    separator,
+    button,
+    actionRow,
+    thumbnail,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 // Category emojis and descriptions
 const CATEGORY_INFO = {
@@ -44,15 +47,27 @@ module.exports = {
             categories[category].push(command);
         });
 
-        // Create the help embed
-        const helpEmbed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle('🤖 Shotdevs Manager Commands')
-            .setDescription('Here\'s a list of all available commands, sorted by category.\nClick on any command to use it!')
-            .setThumbnail(interaction.client.user.displayAvatarURL({ dynamic: true }));
+        // Build Components V2 container with sections for each category
+        const botAvatar = interaction.client.user.displayAvatarURL({ size: 128 });
+        const totalCommands = commands.size;
+        
+        // Build container components array
+        const containerComponents = [];
+        
+        // Header section with bot avatar
+        containerComponents.push(
+            section({
+                content: `# 🤖 Shotdevs Manager Commands\n\nHere's a list of all available commands, sorted by category.\nClick on any command to use it!`,
+                accessory: thumbnail(botAvatar)
+            })
+        );
 
-        // Add categories and commands to the embed
-        for (const [categoryName, categoryCommands] of Object.entries(categories)) {
+        // Add separator before categories
+        containerComponents.push(separator());
+
+        // Add each category as a section
+        const categoryEntries = Object.entries(categories);
+        categoryEntries.forEach(([categoryName, categoryCommands], index) => {
             const formattedCategoryName = categoryName.toLowerCase();
             const info = CATEGORY_INFO[formattedCategoryName] || { 
                 emoji: '📁',
@@ -65,39 +80,61 @@ module.exports = {
                 return `• ${mention} — ${cmd.data.description}`;
             }).join('\n');
 
-            helpEmbed.addFields({
-                name: `${info.emoji} ${categoryName}`,
-                value: `${info.description}\n${commandList}`,
-                inline: false
-            });
-        }
+            // Add category section
+            containerComponents.push(
+                section({
+                    content: `## ${info.emoji} ${categoryName}\n${info.description}\n\n${commandList}`
+                })
+            );
 
-        // Add a footer with command count
-        const totalCommands = commands.size;
-        helpEmbed.setFooter({ 
-            text: `${totalCommands} commands available • Type / to get started`
+            // Add separator after each category (except last one)
+            if (index < categoryEntries.length - 1) {
+                containerComponents.push(separator());
+            }
         });
 
-        // Create a row of buttons for links
-        const linkButtons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setStyle(ButtonStyle.Link)
-                .setLabel('�� Visit Website')
-                .setURL('https://shotdevs.live'),
-            new ButtonBuilder()
-                .setStyle(ButtonStyle.Link)
-                .setLabel('💻 GitHub')
-                .setURL('https://github.com/shotdevs'),
-            new ButtonBuilder()
-                .setStyle(ButtonStyle.Link)
-                .setLabel('🎮 Join Discord')
-                .setURL('https://discord.gg/shotdevs')
+        // Add final separator before footer
+        containerComponents.push(separator());
+
+        // Add footer section
+        containerComponents.push(
+            section({
+                content: `**${totalCommands} commands available** • Type / to get started`
+            })
         );
 
-        await interaction.reply({
-            embeds: [helpEmbed],
-            components: [linkButtons],
-            flags: ['Ephemeral']
+        // Add separator before buttons
+        containerComponents.push(separator());
+
+        // Add link buttons inside container
+        containerComponents.push(
+            actionRow([
+                button({
+                    url: 'https://shotdevs.live',
+                    label: '🌐 Visit Website',
+                    style: 5
+                }),
+                button({
+                    url: 'https://github.com/shotdevs',
+                    label: '💻 GitHub',
+                    style: 5
+                }),
+                button({
+                    url: 'https://discord.gg/shotdevs',
+                    label: '🎮 Join Discord',
+                    style: 5
+                })
+            ])
+        );
+
+        // Send Components V2 message
+        await replyComponentsV2(interaction, {
+            components: [
+                container({
+                    components: containerComponents
+                })
+            ],
+            ephemeral: true
         });
     },
 };

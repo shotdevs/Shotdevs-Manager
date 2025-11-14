@@ -1,5 +1,13 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { getConfig } = require('../../configManager');
+const {
+    container,
+    section,
+    separator,
+    button,
+    actionRow,
+    sendComponentsV2Message
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -70,12 +78,40 @@ module.exports = {
         const panelTitle = guildConfig.ticketPanelTitle || 'Create a Ticket';
         const panelDescription = guildConfig.ticketPanelDescription || 'Please select the reason for opening a ticket below.';
         const labels = guildConfig.ticketButtonLabels || {};
-        const ticketEmbed = new EmbedBuilder().setColor(0x0099FF).setTitle(panelTitle).setDescription(panelDescription);
-        const orderButton = new ButtonBuilder().setCustomId('create_order_ticket').setLabel(labels.order || 'Order').setStyle(ButtonStyle.Success).setEmoji('🛒');
-        const enquiryButton = new ButtonBuilder().setCustomId('create_enquiry_ticket').setLabel(labels.enquiry || 'Enquiry').setStyle(ButtonStyle.Primary).setEmoji('❓');
-        const supportButton = new ButtonBuilder().setCustomId('create_support_ticket').setLabel(labels.support || 'Support').setStyle(ButtonStyle.Secondary).setEmoji('🎟️');
-        const row = new ActionRowBuilder().addComponents(orderButton, enquiryButton, supportButton);
-        const sent = await interaction.channel.send({ embeds: [ticketEmbed], components: [row] });
+        
+        // Build Components V2 ticket panel
+        const sent = await sendComponentsV2Message(interaction.client, interaction.channel.id, {
+            components: [
+                container({
+                    components: [
+                        section({
+                            content: `# ${panelTitle}\n${panelDescription}`
+                        }),
+                        separator(),
+                        actionRow([
+                            button({
+                                custom_id: 'create_order_ticket',
+                                label: labels.order || 'Order',
+                                style: 3, // Success (green)
+                                emoji: '🛒'
+                            }),
+                            button({
+                                custom_id: 'create_enquiry_ticket',
+                                label: labels.enquiry || 'Enquiry',
+                                style: 1, // Primary (blue)
+                                emoji: '❓'
+                            }),
+                            button({
+                                custom_id: 'create_support_ticket',
+                                label: labels.support || 'Support',
+                                style: 2, // Secondary (gray)
+                                emoji: '🎟️'
+                            })
+                        ])
+                    ]
+                })
+            ]
+        });
         try {
             await setConfig(interaction.guild.id, 'ticketPanelChannelId', interaction.channel.id);
             await setConfig(interaction.guild.id, 'ticketPanelMessageId', sent.id);

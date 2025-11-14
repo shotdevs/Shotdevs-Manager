@@ -1,4 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require("discord.js");
+const {
+    container,
+    section,
+    separator,
+    sendComponentsV2Message
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,17 +25,14 @@ module.exports = {
         .setDescription("Title of the announcement")
         .setRequired(false))
     .addStringOption(option =>
-      option.setName("color")
-        .setDescription("Embed color in HEX (example: #ff0000)")
-        .setRequired(false))
-    .addStringOption(option =>
       option.setName("image")
         .setDescription("Image URL to display in the embed")
-        .setRequired(false)),  async execute(interaction) {
+        .setRequired(false)),
+  
+  async execute(interaction) {
     const channel = interaction.options.getChannel("channel");
     const message = interaction.options.getString("message");
     const title = interaction.options.getString("title") || "📢 Announcement";
-    const color = interaction.options.getString("color") || "#ff0000";
     const image = interaction.options.getString("image");
 
     // Validate channel permissions
@@ -41,30 +44,39 @@ module.exports = {
     }
 
     try {
-      // Create Embed
-      const embed = new EmbedBuilder()
-        .setTitle(title)
-        .setDescription(message)
-        .setColor(color)
-        .setFooter({ 
-          text: `Announcement by ${interaction.user.tag}`, 
-          iconURL: interaction.user.displayAvatarURL() 
+      // Build announcement container
+      const components = [
+        section({
+          content: `# ${title}`
+        }),
+        separator(),
+        section({
+          content: message
         })
-        .setTimestamp();
+      ];
 
+      // Add image if provided
       if (image) {
-        try {
-          embed.setImage(image);
-        } catch (error) {
-          return interaction.reply({
-            content: "❌ The provided image URL is invalid!",
-            ephemeral: true
-          });
-        }
+        components.push(separator());
+        components.push(section({
+          content: `![Image](${image})`
+        }));
       }
 
-      // Send the announcement
-      await channel.send({ embeds: [embed] });
+      // Add footer
+      components.push(separator());
+      components.push(section({
+        content: `**Announcement by:** ${interaction.user.tag}`
+      }));
+
+      // Send the announcement with Components V2
+      await sendComponentsV2Message(interaction.client, channel.id, {
+        components: [
+          container({
+            components: components
+          })
+        ]
+      });
 
       // Confirm to the user
       await interaction.reply({

@@ -1,6 +1,13 @@
-const { Events, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { Events, AttachmentBuilder } = require('discord.js');
 const { getConfig } = require('../configManager');
 const { WelcomeCard } = require('pixel-musicard');
+const {
+    container,
+    section,
+    separator,
+    thumbnail,
+    sendComponentsV2Message
+} = require('../utils/componentsV2Builder');
 
 module.exports = {
     name: Events.GuildMemberAdd,
@@ -84,16 +91,23 @@ module.exports = {
             if (welcomeText && welcomeText.trim().length > 0) {
                 await channel.send({ content: welcomeText }).catch(err => console.error('Failed to send welcome text:', err));
             } else {
-                // Build an embed as a safer fallback
-                const welcomeEmbed = new EmbedBuilder()
-                    .setColor(0xED4245)
-                    .setTitle(`Welcome to ${member.guild.name}!`)
-                    .setDescription(welcomeText || `We now have ${member.guild.memberCount} members`)
-                    .setThumbnail(member.user.displayAvatarURL({ extension: 'png' }))
-                    .setFooter({ text: `We now have ${member.guild.memberCount} members` })
-                    .setTimestamp();
-
-                await channel.send({ embeds: [welcomeEmbed] }).catch(err => console.error('Failed to send welcome embed:', err));
+                // Build a Components V2 welcome message as a safer fallback
+                await sendComponentsV2Message(member.client, channel.id, {
+                    components: [
+                        container({
+                            components: [
+                                section({
+                                    content: `# Welcome to ${member.guild.name}!\n\n${welcomeText || `We now have ${member.guild.memberCount} members`}`,
+                                    accessory: thumbnail(member.user.displayAvatarURL({ extension: 'png', size: 128 }))
+                                }),
+                                separator(),
+                                section({
+                                    content: `**We now have ${member.guild.memberCount} members**`
+                                })
+                            ]
+                        })
+                    ]
+                }).catch(err => console.error('Failed to send welcome message:', err));
             }
         } catch (err) {
             console.error('Failed to send welcome (unexpected):', err);

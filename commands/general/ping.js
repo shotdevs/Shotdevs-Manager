@@ -1,4 +1,9 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const {
+    container,
+    section,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,14 +15,17 @@ module.exports = {
         const websocketLatency = interaction.client.ws.ping;
         const roundtripLatency = sent.createdTimestamp - interaction.createdTimestamp;
 
-        const embed = new EmbedBuilder()
-            .setColor(0x57F287)
-            .setTitle('🏓 Pong!')
-            .addFields(
-                { name: 'API Latency', value: `**${websocketLatency}**ms`, inline: true },
-                { name: 'Roundtrip Latency', value: `**${roundtripLatency}**ms`, inline: true }
-            );
-
-        await interaction.editReply({ content: '', embeds: [embed] });
+        await replyComponentsV2(interaction, {
+            components: [
+                container({
+                    components: [
+                        section({
+                            content: `🏓 **Pong!**\n\n**API Latency:** ${websocketLatency}ms\n**Roundtrip Latency:** ${roundtripLatency}ms`
+                        })
+                    ]
+                })
+            ],
+            ephemeral: true
+        });
     },
 };

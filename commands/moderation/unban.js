@@ -1,4 +1,9 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const {
+    container,
+    section,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -18,17 +23,33 @@ module.exports = {
             await interaction.guild.bans.fetch(userId); // Check if the ban exists
             await interaction.guild.members.unban(userId, 'Unbanned by moderator.');
             
-            const confirmationEmbed = new EmbedBuilder()
-                .setColor(0x57F287)
-                .setDescription(`✅ Successfully unbanned user with ID **${userId}**.`);
-            
-            await interaction.editReply({ embeds: [confirmationEmbed] });
+            // Send success confirmation with Components V2
+            await replyComponentsV2(interaction, {
+                components: [
+                    container({
+                        components: [
+                            section({
+                                content: `✅ Successfully unbanned user with ID **${userId}**`
+                            })
+                        ]
+                    })
+                ]
+            });
         } catch (error) {
             console.error(error);
-            const errorEmbed = new EmbedBuilder()
-                .setColor(0xED4245)
-                .setDescription(`❌ Could not unban user. Make sure the ID **${userId}** is correct and the user is actually banned.`);
-            await interaction.editReply({ embeds: [errorEmbed] });
+            
+            // Send error message with Components V2
+            await replyComponentsV2(interaction, {
+                components: [
+                    container({
+                        components: [
+                            section({
+                                content: `❌ Could not unban user. Make sure the ID **${userId}** is correct and the user is actually banned.`
+                            })
+                        ]
+                    })
+                ]
+            });
         }
     },
 };

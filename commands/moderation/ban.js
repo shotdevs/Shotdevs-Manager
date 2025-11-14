@@ -1,4 +1,11 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const {
+    container,
+    section,
+    separator,
+    sendComponentsV2Message,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -21,26 +28,41 @@ module.exports = {
             return interaction.reply({ content: 'I cannot ban this user. They may have a higher role than me or I lack permissions.', flags: [ 'Ephemeral' ] });
         }
 
-        const dmEmbed = new EmbedBuilder()
-            .setColor(0xED4245)
-            .setTitle('You have been banned')
-            .addFields(
-                { name: 'Server', value: interaction.guild.name },
-                { name: 'Reason', value: reason }
-            )
-            .setTimestamp();
-
-        await target.send({ embeds: [dmEmbed] }).catch(err => {
+        // Send DM to user with Components V2
+        try {
+            await sendComponentsV2Message(interaction.client, (await target.createDM()).id, {
+                components: [
+                    container({
+                        components: [
+                            section({
+                                content: '# You have been banned'
+                            }),
+                            separator(),
+                            section({
+                                content: `**Server:** ${interaction.guild.name}\n**Reason:** ${reason}`
+                            })
+                        ]
+                    })
+                ]
+            });
+        } catch (err) {
             console.log(`Could not DM user ${target.tag}.`);
-        });
+        }
 
         await member.ban({ reason: reason });
 
-        const confirmationEmbed = new EmbedBuilder()
-            .setColor(0x57F287)
-            .setDescription(`🔨 Successfully banned **${target.tag}**. Reason: ${reason}`);
-
-        await interaction.reply({ embeds: [confirmationEmbed] });
+        // Send confirmation with Components V2
+        await replyComponentsV2(interaction, {
+            components: [
+                container({
+                    components: [
+                        section({
+                            content: `✅ Successfully banned **${target.tag}**\n\n**Reason:** ${reason}`
+                        })
+                    ]
+                })
+            ]
+        });
 
         // --- Moderation Log ---
         try {
@@ -50,16 +72,21 @@ module.exports = {
             if (modlogChannelId) {
                 const modlogChannel = interaction.guild.channels.cache.get(modlogChannelId);
                 if (modlogChannel) {
-                    const logEmbed = new EmbedBuilder()
-                        .setColor(0xED4245)
-                        .setTitle('User Banned')
-                        .addFields(
-                            { name: 'User', value: `${target.tag} (${target.id})` },
-                            { name: 'Moderator', value: `${interaction.user.tag} (${interaction.user.id})` },
-                            { name: 'Reason', value: reason }
-                        )
-                        .setTimestamp();
-                    await modlogChannel.send({ embeds: [logEmbed] });
+                    await sendComponentsV2Message(interaction.client, modlogChannel.id, {
+                        components: [
+                            container({
+                                components: [
+                                    section({
+                                        content: '# User Banned'
+                                    }),
+                                    separator(),
+                                    section({
+                                        content: `**User:** ${target.tag} (${target.id})\n**Moderator:** ${interaction.user.tag} (${interaction.user.id})\n**Reason:** ${reason}`
+                                    })
+                                ]
+                            })
+                        ]
+                    });
                 }
             }
         } catch (e) {

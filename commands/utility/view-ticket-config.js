@@ -1,5 +1,11 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { getConfig } = require('../../configManager'); // Adjust path if needed
+const {
+    container,
+    section,
+    separator,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -27,40 +33,33 @@ module.exports = {
         const enquiryLabel = labels.enquiry || 'Enquiry';
         const supportLabel = labels.support || 'Support';
 
-        const embed = new EmbedBuilder()
-            .setTitle(`Ticket System Configuration`)
-            .setDescription(`Showing settings for **${interaction.guild.name}**`)
-            .setColor(0x00BFFF) // Deep Sky Blue
-            .setTimestamp()
-            .addFields(
-                {
-                    name: 'Core Setup',
-                    value: [
-                        `**Staff Role:** ${formatValue(config.staffRoleId, 'role')}`,
-                        `**Log Channel:** ${formatValue(config.logChannelId, 'channel')}`,
-                    ].join('\n'),
-                },
-                {
-                    name: 'Ticket Categories',
-                    value: [
-                        `**Orders:** ${formatValue(config.orderCategoryId, 'channel')}`,
-                        `**Enquiries:** ${formatValue(config.enquiryCategoryId, 'channel')}`,
-                        `**Support:** ${formatValue(config.supportCategoryId, 'channel')}`,
-                    ].join('\n'),
-                },
-                {
-                    name: 'Panel Appearance',
-                    value: [
-                        `**Panel Title:** \`\`\`${config.ticketPanelTitle || 'Create a Ticket'}\`\`\``,
-                        `**Panel Description:** \`\`\`${config.ticketPanelDescription || 'Please select the reason for opening a ticket below.'}\`\`\``,
-                    ].join('\n'),
-                },
-                {
-                    name: 'Button Labels',
-                    value: `🛒 ${orderLabel} | ❓ ${enquiryLabel} | 🎟️ ${supportLabel}`,
-                }
-            );
-
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await replyComponentsV2(interaction, {
+            components: [
+                container({
+                    components: [
+                        section({
+                            content: `# Ticket System Configuration\nShowing settings for **${interaction.guild.name}**`
+                        }),
+                        separator(),
+                        section({
+                            content: `## Core Setup\n**Staff Role:** ${formatValue(config.staffRoleId, 'role')}\n**Log Channel:** ${formatValue(config.logChannelId, 'channel')}`
+                        }),
+                        separator(),
+                        section({
+                            content: `## Ticket Categories\n**Orders:** ${formatValue(config.orderCategoryId, 'channel')}\n**Enquiries:** ${formatValue(config.enquiryCategoryId, 'channel')}\n**Support:** ${formatValue(config.supportCategoryId, 'channel')}`
+                        }),
+                        separator(),
+                        section({
+                            content: `## Panel Appearance\n**Panel Title:** \`${config.ticketPanelTitle || 'Create a Ticket'}\`\n**Panel Description:** \`${config.ticketPanelDescription || 'Please select the reason for opening a ticket below.'}\``
+                        }),
+                        separator(),
+                        section({
+                            content: `## Button Labels\n🛒 ${orderLabel} | ❓ ${enquiryLabel} | 🎟️ ${supportLabel}`
+                        })
+                    ]
+                })
+            ],
+            ephemeral: true
+        });
     },
 };

@@ -1,4 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const {
+    container,
+    section,
+    separator,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -18,14 +24,23 @@ module.exports = {
         // Construct the uptime string, only showing non-zero values
         let uptime = `${days}d, ${hours}h, ${minutes}m, ${seconds}s`;
         
-        const embed = new EmbedBuilder()
-            .setColor(0x5865F2) // Discord Blurple color
-            .setTitle('🤖 Bot Uptime')
-            .setDescription(`I've been online for **${uptime}**.`)
-            // The footer will show the exact date and time the bot started
-            .setTimestamp(interaction.client.readyAt)
-            .setFooter({ text: 'Started on' });
+        // Get started timestamp
+        const startedTimestamp = Math.floor(interaction.client.readyAt.getTime() / 1000);
 
-        await interaction.reply({ embeds: [embed] });
+        await replyComponentsV2(interaction, {
+            components: [
+                container({
+                    components: [
+                        section({
+                            content: `# ⏰ Bot Uptime`
+                        }),
+                        separator(),
+                        section({
+                            content: `I've been online for **${uptime}**\n\n**Started on:** <t:${startedTimestamp}:F>`
+                        })
+                    ]
+                })
+            ]
+        });
     },
 };

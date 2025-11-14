@@ -1,5 +1,12 @@
-const { SlashCommandBuilder, EmbedBuilder, version } = require('discord.js');
+const { SlashCommandBuilder, version } = require('discord.js');
 const os = require('os');
+const {
+    container,
+    section,
+    separator,
+    thumbnail,
+    replyComponentsV2
+} = require('../../utils/componentsV2Builder');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -22,38 +29,44 @@ module.exports = {
         const seconds = Math.floor(uptime / 1000) % 60;
         const uptimeString = `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
-        // Create the embed
-        const embed = new EmbedBuilder()
-            .setColor(0x5865F2) // Discord Blurple color
-            .setAuthor({ 
-                name: interaction.client.user.username, 
-                iconURL: interaction.client.user.displayAvatarURL() 
-            })
-            .setThumbnail(interaction.client.user.displayAvatarURL())
-            .addFields(
-                // General Information
-                { 
-                    name: '📜 General Info', 
-                    value: `**Developer:** \`${owner}\`\n**Bot ID:** \`${interaction.client.user.id}\`\n**Created On:** <t:${Math.floor(interaction.client.user.createdTimestamp / 1000)}:F>`, 
-                    inline: false 
-                },
-                // Statistics
-                { 
-                    name: '📊 Statistics', 
-                    value: `**Servers:** \`${interaction.client.guilds.cache.size}\`\n**Users:** \`${interaction.client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0)}\`\n**Channels:** \`${interaction.client.channels.cache.size}\``, 
-                    inline: true 
-                },
-                // System Information
-                { 
-                    name: '⚙️ System Info', 
-                    value: `**Discord.js:** \`v${version}\`\n**Node.js:** \`${process.version}\`\n**Memory:** \`${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)} MB\`\n**Uptime:** \`${uptimeString}\``, 
-                    inline: true 
-                }
-            )
-            .setTimestamp()
-            .setFooter({ text: `Requested by ${interaction.user.tag}` });
+        // Get bot avatar
+        const botAvatar = interaction.client.user.displayAvatarURL({ size: 128 });
 
-        // Send the embed
-        await interaction.editReply({ embeds: [embed] });
+        // Calculate statistics
+        const totalServers = interaction.client.guilds.cache.size;
+        const totalUsers = interaction.client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
+        const totalChannels = interaction.client.channels.cache.size;
+        const memoryUsage = (process.memoryUsage().rss / 1024 / 1024).toFixed(2);
+        const createdTimestamp = Math.floor(interaction.client.user.createdTimestamp / 1000);
+
+        // Build Components V2 message
+        await replyComponentsV2(interaction, {
+            components: [
+                container({
+                    components: [
+                        section({
+                            content: `# ${interaction.client.user.username}\nBot Information`,
+                            accessory: thumbnail(botAvatar)
+                        }),
+                        separator(),
+                        section({
+                            content: `## 📜 General Info\n**Developer:** \`${owner}\`\n**Bot ID:** \`${interaction.client.user.id}\`\n**Created On:** <t:${createdTimestamp}:F>`
+                        }),
+                        separator(),
+                        section({
+                            content: `## 📊 Statistics\n**Servers:** \`${totalServers}\`\n**Users:** \`${totalUsers}\`\n**Channels:** \`${totalChannels}\``
+                        }),
+                        separator(),
+                        section({
+                            content: `## ⚙️ System Info\n**Discord.js:** \`v${version}\`\n**Node.js:** \`${process.version}\`\n**Memory:** \`${memoryUsage} MB\`\n**Uptime:** \`${uptimeString}\``
+                        }),
+                        separator(),
+                        section({
+                            content: `**Requested by:** ${interaction.user.tag}`
+                        })
+                    ]
+                })
+            ]
+        });
     },
 };

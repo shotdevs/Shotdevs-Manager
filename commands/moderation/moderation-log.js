@@ -1,5 +1,11 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const configManager = require('../../configManager');
+const {
+    container,
+    section,
+    separator,
+    sendComponentsV2Message
+} = require('../../utils/componentsV2Builder');
 
 // Log to confirm the file is being loaded by your command handler
 console.log('[LOAD] Command "moderation-log" is being loaded.');
@@ -22,9 +28,6 @@ module.exports = {
                 .setDescription('Additional details or reason for the action.')
                 .setRequired(false)),
     async execute(interaction) {
-        // --- Defer Reply for slower operations (optional but good practice) ---
-        // await interaction.deferReply({ ephemeral: true });
-
         const target = interaction.options.getUser('target');
         const action = interaction.options.getString('action');
         const details = interaction.options.getString('details') || 'No additional details provided.';
@@ -49,20 +52,27 @@ module.exports = {
             return interaction.reply({ content: 'The configured moderation log channel could not be found. It may have been deleted.', ephemeral: true });
         }
 
-        const logEmbed = new EmbedBuilder()
-            .setColor(0x5865F2) // Discord's Blurple color
-            .setTitle('Manual Moderation Log')
-            .addFields(
-                { name: 'Action', value: action, inline: true },
-                { name: 'Target User', value: `${target.tag} (${target.id})`, inline: true },
-                { name: 'Moderator', value: `${moderator.tag} (${moderator.id})`, inline: true },
-                { name: 'Details', value: details }
-            )
-            .setTimestamp()
-            .setFooter({ text: `Guild ID: ${interaction.guild.id}` });
-
+        // Send log with Components V2
         try {
-            await modlogChannel.send({ embeds: [logEmbed] });
+            await sendComponentsV2Message(interaction.client, modlogChannel.id, {
+                components: [
+                    container({
+                        components: [
+                            section({
+                                content: '# Manual Moderation Log'
+                            }),
+                            separator(),
+                            section({
+                                content: `**Action:** ${action}\n**Target User:** ${target.tag} (${target.id})\n**Moderator:** ${moderator.tag} (${moderator.id})\n**Details:** ${details}`
+                            }),
+                            separator(),
+                            section({
+                                content: `**Guild ID:** ${interaction.guild.id}`
+                            })
+                        ]
+                    })
+                ]
+            });
             await interaction.reply({ content: 'Moderation action has been successfully logged.', ephemeral: true });
         } catch (error) {
             console.error(`Could not send message to modlog channel ${modlogChannelId} in guild ${interaction.guild.id}:`, error);
