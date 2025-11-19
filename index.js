@@ -9,6 +9,9 @@ const express = require('express');
 const LicenseManager = require('./utils/LicenseManager');
 const Logger = require('./utils/logger');
 
+// ⭐ ADDED: Status Manager
+const initStatusManager = require('./status-manager');
+
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds,
@@ -38,6 +41,7 @@ for (const folder of commandFolders) {
         }
     }
 }
+
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 for (const file of eventFiles) {
@@ -52,9 +56,8 @@ for (const file of eventFiles) {
 
 async function start() {
     try {
-        // Print startup banner
         console.log('\n━━━━━━━━━━━━━━━━ SHOTDEVS MANAGER ━━━━━━━━━━━━━━━━');
-        
+
         // 1. License Verification
         Logger.license('Verifying license...');
         const licenseManager = new LicenseManager(
@@ -70,20 +73,23 @@ async function start() {
         }
         Logger.license(verificationResult.message);
 
-        // Start periodic license checks (every 24 hours)
+        // Periodic 24-hour license check
         licenseManager.startPeriodicCheck(process.env.LICENSE_KEY, 24 * 60 * 60 * 1000, (errorMessage) => {
             Logger.license(errorMessage, true);
             Logger.error('License has become invalid. Shutting down...');
             process.exit(1);
         });
 
-        // 2. Normal Startup Sequence
+        // 2. Normal Startup
         await mongoose.connect(process.env.MONGO_URI);
         Logger.database('Connected to MongoDB');
 
         await deployCommands();
         await client.login(process.env.DISCORD_TOKEN);
         Logger.bot(`Logged in as ${client.user.tag}`);
+
+        // ⭐ Initialize Status Manager AFTER LOGIN
+        const statusManager = initStatusManager(client, { logger: Logger });
 
         const app = express();
         const port = process.env.PORT || 3000;
@@ -106,6 +112,27 @@ async function start() {
         app.listen(port, () => {
             Logger.web(`Website listening on port ${port}`);
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+            // ⭐ POST WEBSITE STATUS TO DISCORD
+            const statusChannelId = process.env.STATUS_CHANNEL_ID;
+            if (statusChannelId) {
+                const embed = {
+                    embeds: [{
+                        title: '🟢 Website Status',
+                        description: 'Website restarted successfully.',
+                        fields: [
+                            { name: 'Status', value: 'Online', inline: true },
+                            { name: 'Restart Time', value: new Date().toISOString(), inline: true }
+                        ],
+                        color: 0x00ff1e,
+                        timestamp: new Date().toISOString()
+                    }]
+                };
+
+                statusManager.postOrUpdateStatus(statusChannelId, embed)
+                    .then(() => Logger.web('Status message updated in Discord'))
+                    .catch(err => console.error('Status update failed:', err));
+            }
         });
 
     } catch (error) {
