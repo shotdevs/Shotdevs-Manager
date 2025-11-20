@@ -22,13 +22,13 @@ module.exports = {
                 await command.execute(interaction);
             } catch (error) {
                 console.error(`Error executing ${interaction.commandName}`, error);
-                
+
                 // Check if interaction is still valid and not already acknowledged
                 if (!interaction.isRepliable()) {
                     console.log(`Interaction ${interaction.id} is no longer repliable`);
                     return;
                 }
-                
+
                 if (interaction.deferred || interaction.replied) {
                     try {
                         await interaction.editReply({ content: 'There was an error while executing this command!' });
@@ -50,7 +50,7 @@ module.exports = {
         if (interaction.isButton()) {
             const { customId, guild, channel, user, member } = interaction;
             const guildConfig = await getConfig(guild.id);
-            
+
             const isTicketCreationButton = ['create_order_ticket', 'create_enquiry_ticket', 'create_support_ticket'].includes(customId);
 
             // --- TICKET CREATION LOGIC ---
@@ -267,7 +267,7 @@ module.exports = {
                         });
                         const buffer = Buffer.from(transcript, 'utf-8');
                         const attachment = new AttachmentBuilder(buffer, { name: `${channel.name}-transcript.txt` });
-                        
+
                         // Send Components V2 log message
                         await sendComponentsV2Message(interaction.client, logChannel.id, {
                             components: [
@@ -297,15 +297,15 @@ module.exports = {
             // --- TICKET CLAIMING LOGIC ---
             else if (customId === 'claim_ticket_button') {
                 await interaction.deferUpdate();
-                
+
                 // Rebuild the entire container with updated footer and disabled claim button
                 const ticketType = channel.name.split('-')[0]; // Extract ticket type from channel name
                 const originalMessage = interaction.message;
                 const btnLabels = guildConfig.ticketButtonLabels || {};
-                
+
                 // Get user mention from original message content
                 const userMention = originalMessage.content.match(/<@&?\d+>/)?.[0] || '';
-                
+
                 await interaction.message.edit({
                     content: userMention,
                     flags: 1 << 15, // IS_COMPONENTS_V2
@@ -358,4 +358,25 @@ module.exports = {
                 const buffer = Buffer.from(transcript, 'utf-8');
                 const attachment = new AttachmentBuilder(buffer, { name: `${channel.name}-transcript.txt` });
                 await user.send({ content: `Here is the transcript for your ticket, #${channel.name}.`, files: [attachment] }).catch(err => {
-                    interaction.followUp({ content: 'I could not DM you the transcript. Do you have DMs disabled?', fl
+                    interaction.followUp({ content: 'I could not DM you the transcript. Do you have DMs disabled?', flags: [ 'Ephemeral' ] });
+                });
+            }
+            // --- BUTTON ROLE LOGIC ---
+            else if (customId.startsWith('button_role_')) {
+                await interaction.deferReply({ flags: [ 'Ephemeral' ] });
+                const roleId = customId.split('_')[2];
+                const role = interaction.guild.roles.cache.get(roleId);
+                if (!role) {
+                    return interaction.editReply('This role no longer exists.');
+                }
+                if (member.roles.cache.has(role.id)) {
+                    await member.roles.remove(role);
+                    await interaction.editReply(`The **${role.name}** role has been removed.`);
+                } else {
+                    await member.roles.add(role);
+                    await interaction.editReply(`You have been given the **${role.name}** role.`);
+                }
+            }
+        }
+    },
+};
