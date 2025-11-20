@@ -43,7 +43,7 @@ module.exports = {
                 .setStatus(member?.presence?.status || "offline")
                 // --- THIS IS THE LINE YOU CAN CHANGE ---
                 .setBackground("https://iili.io/KNehlZ7.png");
-
+                .disableDefaultBackground()
             const cardBuffer = await rankCard.build({ format: 'png' });
             const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
 
