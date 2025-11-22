@@ -7,45 +7,50 @@
 
 const { REST, Routes } = require('discord.js');
 
-// --- HELPER: Payload Sanitizer ---
+// --- HELPER: Deep Payload Sanitizer ---
 /**
  * Recursively removes invalid accessories from components to prevent API 50035 errors.
- * This ensures that if a raw config object is passed with empty accessories, they are stripped out.
+ * This function uses JSON serialization to break references and ensure a clean object tree.
  */
 function cleanComponents(components) {
   if (!Array.isArray(components)) return components;
 
-  return components.map(comp => {
-    if (!comp || typeof comp !== 'object') return comp;
+  // 1. Deep Clone: Forces 'undefined' keys to vanish and breaks references
+  const plainComponents = JSON.parse(JSON.stringify(components));
 
-    // Create a shallow copy
-    const safeComp = { ...comp };
+  // 2. Recursive Cleaning Function
+  const scanAndClean = (nodes) => {
+    return nodes.map(node => {
+      if (!node || typeof node !== 'object') return node;
 
-    // 1. Validate Accessory
-    // We explicitly check if the key exists. 
-    // If it exists but is invalid (no type, empty object, or null), we DELETE it.
-    if (safeComp.accessory !== undefined) { 
-      const acc = safeComp.accessory;
-      // Check: Must be an object, not null, and MUST have a 'type' property
-      const isValid = acc && typeof acc === 'object' && acc.type !== undefined && acc.type !== null;
-      
-      if (!isValid) {
-        delete safeComp.accessory;
+      // VALIDATE ACCESSORY
+      // If 'accessory' key exists (even as null), we must check it.
+      if ('accessory' in node) {
+        const acc = node.accessory;
+        
+        // Rule: Accessory MUST be an object, NOT null, and MUST have a 'type'.
+        // If it violates any of these, we DELETE the key entirely.
+        const isValid = acc && typeof acc === 'object' && acc.type !== undefined && acc.type !== null;
+        
+        if (!isValid) {
+          delete node.accessory;
+        }
       }
-    }
 
-    // 2. Recurse into children
-    if (safeComp.components && Array.isArray(safeComp.components)) {
-      safeComp.components = cleanComponents(safeComp.components);
-    }
+      // RECURSE into children (components array)
+      if (Array.isArray(node.components)) {
+        node.components = scanAndClean(node.components);
+      }
 
-    return safeComp;
-  });
+      return node;
+    });
+  };
+
+  return scanAndClean(plainComponents);
 }
 
 /**
  * Creates a Container component (type 17)
- * Containers are the top-level component that holds sections, separators, and action rows
  */
 function container({ accent_color = null, components }) {
   if (!Array.isArray(components)) {
@@ -57,7 +62,6 @@ function container({ accent_color = null, components }) {
 
 /**
  * Creates a Section component (type 9)
- * Sections contain text displays and can have an optional accessory (like a thumbnail)
  */
 function section({ content = [], accessory = null }) {
   let components;
@@ -73,7 +77,12 @@ function section({ content = [], accessory = null }) {
   }
   
   const sec = { type: 9, components };
-  if (accessory && accessory.type) sec.accessory = accessory;
+  
+  // Builder Safety: Only attach if strictly valid
+  if (accessory && typeof accessory === 'object' && accessory.type) {
+    sec.accessory = accessory;
+  }
+  
   return sec;
 }
 
@@ -135,42 +144,40 @@ function thumbnail(url) {
 
 /**
  * Sends a Components V2 message via REST API
+ * Uses deep sanitization before sending.
  */
 async function sendComponentsV2Message(client, channelId, payload) {
   if (!client || !channelId) throw new Error('Client and channelId are required');
   
   const rest = client.rest || new REST({ version: '10' }).setToken(client.token);
   
-  // 1. Clean the payload structure
+  // 1. Clean components deeply
   const safePayload = { ...payload };
   if (safePayload.components) {
     safePayload.components = cleanComponents(safePayload.components);
   }
   
   // 2. Construct Body
-  let body = {
+  const body = {
     flags: 1 << 15, // IS_COMPONENTS_V2
     ...safePayload
   };
 
   if (payload.ephemeral) body.flags |= 1 << 6;
 
-  // 3. NUCLEAR OPTION: JSON Cycle
-  // This forces all 'undefined' keys to be stripped and ensures the object is 100% clean JSON.
-  // This fixes the issue where memory objects might still hold hidden references.
-  body = JSON.parse(JSON.stringify(body));
-
   try {
     return await rest.post(Routes.channelMessages(channelId), { body });
   } catch (error) {
     console.error('Error sending Components V2 message:', error);
-    console.error('Failed Payload (Cleaned):', JSON.stringify(body, null, 2));
+    // Log the EXACT body being sent for final debugging
+    console.error('Final Body Sent:', JSON.stringify(body, null, 2));
     throw error;
   }
 }
 
 /**
  * Replies to an interaction with a Components V2 message
+ * Uses deep sanitization before sending.
  */
 async function replyComponentsV2(interaction, payload) {
   if (!interaction) throw new Error('Interaction is required');
@@ -180,15 +187,12 @@ async function replyComponentsV2(interaction, payload) {
     safePayload.components = cleanComponents(safePayload.components);
   }
   
-  let body = {
+  const body = {
     flags: 1 << 15, // IS_COMPONENTS_V2
     ...safePayload
   };
   
   if (payload.ephemeral) body.flags |= 1 << 6;
-
-  // Nuclear Clean
-  body = JSON.parse(JSON.stringify(body));
 
   try {
     if (interaction.deferred || interaction.replied) {
@@ -198,13 +202,14 @@ async function replyComponentsV2(interaction, payload) {
     }
   } catch (error) {
     console.error('Error replying with Components V2:', error);
-    console.error('Failed Payload (Cleaned):', JSON.stringify(body, null, 2));
+    console.error('Final Body Sent:', JSON.stringify(body, null, 2));
     throw error;
   }
 }
 
 /**
  * Edits a message with Components V2 content
+ * Uses deep sanitization before sending.
  */
 async function editComponentsV2Message(message, payload) {
   if (!message) throw new Error('Message is required');
@@ -214,19 +219,16 @@ async function editComponentsV2Message(message, payload) {
     safePayload.components = cleanComponents(safePayload.components);
   }
   
-  let body = {
+  const body = {
     flags: 1 << 15, // IS_COMPONENTS_V2
     ...safePayload
   };
-
-  // Nuclear Clean
-  body = JSON.parse(JSON.stringify(body));
   
   try {
     return await message.edit(body);
   } catch (error) {
     console.error('Error editing Components V2 message:', error);
-    console.error('Failed Payload (Cleaned):', JSON.stringify(body, null, 2));
+    console.error('Final Body Sent:', JSON.stringify(body, null, 2));
     throw error;
   }
 }
