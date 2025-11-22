@@ -15,67 +15,49 @@ const { REST, Routes } = require('discord.js');
 function cleanComponents(components) {
   if (!Array.isArray(components)) return components;
 
-  return components.map(c => {
-    if (!c || typeof c !== 'object') return c;
+  return components.map(comp => {
+    if (!comp || typeof comp !== 'object') return comp;
 
-    // Create a shallow copy to avoid mutating the original reference permanently
-    const safeC = { ...c };
+    // Create a shallow copy
+    const safeComp = { ...comp };
 
-    // 1. Recursively clean children (for Containers, Action Rows, etc.)
-    if (safeC.components && Array.isArray(safeC.components)) {
-      safeC.components = cleanComponents(safeC.components);
-    }
-
-    // 2. Check for invalid accessory
-    // This catches cases where accessory is {}, null, or missing 'type'
-    if ('accessory' in safeC) {
-      const acc = safeC.accessory;
-      // Check if accessory is invalid (null, not object, missing type, or empty object)
-      const isInvalid = !acc || 
-                        typeof acc !== 'object' || 
-                        !acc.type || 
-                        Object.keys(acc).length === 0;
-
-      if (isInvalid) {
-        // Delete the key entirely so it's not sent to Discord
-        delete safeC.accessory;
+    // 1. Validate Accessory
+    // We explicitly check if the key exists. 
+    // If it exists but is invalid (no type, empty object, or null), we DELETE it.
+    if (safeComp.accessory !== undefined) { 
+      const acc = safeComp.accessory;
+      // Check: Must be an object, not null, and MUST have a 'type' property
+      const isValid = acc && typeof acc === 'object' && acc.type !== undefined && acc.type !== null;
+      
+      if (!isValid) {
+        delete safeComp.accessory;
       }
     }
 
-    return safeC;
+    // 2. Recurse into children
+    if (safeComp.components && Array.isArray(safeComp.components)) {
+      safeComp.components = cleanComponents(safeComp.components);
+    }
+
+    return safeComp;
   });
 }
 
 /**
  * Creates a Container component (type 17)
  * Containers are the top-level component that holds sections, separators, and action rows
- * * @param {Object} options - Container options
- * @param {number|null} [options.accent_color=null] - Accent color (null for transparent)
- * @param {Array} options.components - Array of sections, separators, and action rows
- * @returns {Object} Container component object
  */
 function container({ accent_color = null, components }) {
   if (!Array.isArray(components)) {
     throw new Error('Container components must be an array');
   }
-  
-  // Filter out any null or undefined components
   const cleanComponentsList = components.filter(c => c !== null && c !== undefined);
-
-  return {
-    type: 17,
-    accent_color,
-    components: cleanComponentsList
-  };
+  return { type: 17, accent_color, components: cleanComponentsList };
 }
 
 /**
  * Creates a Section component (type 9)
  * Sections contain text displays and can have an optional accessory (like a thumbnail)
- * * @param {Object} options - Section options
- * @param {string|Array|Object} [options.content=[]] - Text content (string, array of strings, or text display objects)
- * @param {Object|null} [options.accessory=null] - Optional accessory (thumbnail, etc.)
- * @returns {Object} Section component object
  */
 function section({ content = [], accessory = null }) {
   let components;
@@ -91,56 +73,31 @@ function section({ content = [], accessory = null }) {
   }
   
   const sec = { type: 9, components };
-  
-  // Safety check: Only attach accessory if it has a valid type
-  if (accessory && accessory.type) {
-    sec.accessory = accessory;
-  }
-  
+  if (accessory && accessory.type) sec.accessory = accessory;
   return sec;
 }
 
 /**
  * Creates a Text Display component (type 10)
- * Text displays show formatted text content with markdown support
- * * @param {string} content - Text content
- * @returns {Object} Text Display component object
  */
 function textDisplay(content) {
-  if (typeof content !== 'string' && typeof content !== 'number') {
-    content = " "; 
-  }
-  
-  return { 
-    type: 10, 
-    content: String(content) 
-  };
+  if (typeof content !== 'string' && typeof content !== 'number') content = " "; 
+  return { type: 10, content: String(content) };
 }
 
 /**
  * Creates a Separator component (type 14)
- * Separators create visual dividers between sections
- * * @param {number} [spacing=1] - Spacing value
- * @returns {Object} Separator component object
  */
 function separator(spacing = 1) {
-  return { 
-    type: 14, 
-    divider: true, 
-    spacing 
-  };
+  return { type: 14, divider: true, spacing };
 }
 
 /**
  * Creates a Button component (type 2)
- * * @param {Object} options - Button options
- * @returns {Object} Button component object
  */
 function button({ custom_id, label, style = 2, url, disabled = false, emoji }) {
   if (!label && !emoji) label = "Button";
-  
   const btn = { type: 2, style };
-  
   if (label) btn.label = label;
   
   if (url) {
@@ -153,110 +110,86 @@ function button({ custom_id, label, style = 2, url, disabled = false, emoji }) {
   }
   
   if (disabled) btn.disabled = true;
-  
   if (emoji) {
-    if (typeof emoji === 'string') {
-      btn.emoji = { name: emoji };
-    } else {
-      btn.emoji = emoji;
-    }
+    if (typeof emoji === 'string') btn.emoji = { name: emoji };
+    else btn.emoji = emoji;
   }
-  
   return btn;
 }
 
 /**
  * Creates an Action Row component (type 1)
- * * @param {Array} components - Array of button components
- * @returns {Object} Action Row component object
  */
 function actionRow(components) {
-  if (!Array.isArray(components)) {
-    throw new Error('Action row components must be an array');
-  }
-  
-  return { 
-    type: 1, 
-    components 
-  };
+  if (!Array.isArray(components)) throw new Error('Action row components must be an array');
+  return { type: 1, components };
 }
 
 /**
  * Creates a Thumbnail accessory (type 11)
- * * @param {string} url - Image URL
- * @returns {Object} Thumbnail accessory object
  */
 function thumbnail(url) {
-  if (!url || typeof url !== 'string') {
-    return null; 
-  }
-  
-  return {
-    type: 11,
-    media: { url }
-  };
+  if (!url || typeof url !== 'string') return null; 
+  return { type: 11, media: { url } };
 }
 
 /**
  * Sends a Components V2 message via REST API
- * Automatically sanitizes invalid accessories before sending.
  */
 async function sendComponentsV2Message(client, channelId, payload) {
-  if (!client || !channelId) {
-    throw new Error('Client and channelId are required');
-  }
+  if (!client || !channelId) throw new Error('Client and channelId are required');
   
   const rest = client.rest || new REST({ version: '10' }).setToken(client.token);
   
-  // Prepare safe payload by creating a shallow copy and cleaning components
+  // 1. Clean the payload structure
   const safePayload = { ...payload };
   if (safePayload.components) {
     safePayload.components = cleanComponents(safePayload.components);
   }
   
-  const body = {
+  // 2. Construct Body
+  let body = {
     flags: 1 << 15, // IS_COMPONENTS_V2
     ...safePayload
   };
-  
-  if (payload.ephemeral) {
-    body.flags |= 1 << 6;
-  }
-  
+
+  if (payload.ephemeral) body.flags |= 1 << 6;
+
+  // 3. NUCLEAR OPTION: JSON Cycle
+  // This forces all 'undefined' keys to be stripped and ensures the object is 100% clean JSON.
+  // This fixes the issue where memory objects might still hold hidden references.
+  body = JSON.parse(JSON.stringify(body));
+
   try {
     return await rest.post(Routes.channelMessages(channelId), { body });
   } catch (error) {
     console.error('Error sending Components V2 message:', error);
-    // Log the failed payload to help debugging
-    console.error('Failed Payload:', JSON.stringify(body, null, 2));
+    console.error('Failed Payload (Cleaned):', JSON.stringify(body, null, 2));
     throw error;
   }
 }
 
 /**
  * Replies to an interaction with a Components V2 message
- * Automatically sanitizes invalid accessories before sending.
  */
 async function replyComponentsV2(interaction, payload) {
-  if (!interaction) {
-    throw new Error('Interaction is required');
-  }
+  if (!interaction) throw new Error('Interaction is required');
   
-  // Prepare safe payload
   const safePayload = { ...payload };
   if (safePayload.components) {
     safePayload.components = cleanComponents(safePayload.components);
   }
   
-  const body = {
+  let body = {
     flags: 1 << 15, // IS_COMPONENTS_V2
     ...safePayload
   };
   
-  if (payload.ephemeral) {
-    body.flags |= 1 << 6;
-  }
-  
+  if (payload.ephemeral) body.flags |= 1 << 6;
+
+  // Nuclear Clean
+  body = JSON.parse(JSON.stringify(body));
+
   try {
     if (interaction.deferred || interaction.replied) {
       return await interaction.editReply(body);
@@ -265,36 +198,35 @@ async function replyComponentsV2(interaction, payload) {
     }
   } catch (error) {
     console.error('Error replying with Components V2:', error);
-    console.error('Failed Payload:', JSON.stringify(body, null, 2));
+    console.error('Failed Payload (Cleaned):', JSON.stringify(body, null, 2));
     throw error;
   }
 }
 
 /**
  * Edits a message with Components V2 content
- * Automatically sanitizes invalid accessories before sending.
  */
 async function editComponentsV2Message(message, payload) {
-  if (!message) {
-    throw new Error('Message is required');
-  }
+  if (!message) throw new Error('Message is required');
 
-  // Prepare safe payload
   const safePayload = { ...payload };
   if (safePayload.components) {
     safePayload.components = cleanComponents(safePayload.components);
   }
   
-  const body = {
+  let body = {
     flags: 1 << 15, // IS_COMPONENTS_V2
     ...safePayload
   };
+
+  // Nuclear Clean
+  body = JSON.parse(JSON.stringify(body));
   
   try {
     return await message.edit(body);
   } catch (error) {
     console.error('Error editing Components V2 message:', error);
-    console.error('Failed Payload:', JSON.stringify(body, null, 2));
+    console.error('Failed Payload (Cleaned):', JSON.stringify(body, null, 2));
     throw error;
   }
 }
