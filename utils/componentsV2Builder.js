@@ -26,10 +26,18 @@ function cleanComponents(components) {
       safeC.components = cleanComponents(safeC.components);
     }
 
-    // 2. Check for invalid accessory (exists but has no type)
-    // This catches cases like accessory: {} which causes "BASE_TYPE_REQUIRED"
-    if (safeC.accessory) {
-      if (!safeC.accessory.type) {
+    // 2. Check for invalid accessory
+    // This catches cases where accessory is {}, null, or missing 'type'
+    if ('accessory' in safeC) {
+      const acc = safeC.accessory;
+      // Check if accessory is invalid (null, not object, missing type, or empty object)
+      const isInvalid = !acc || 
+                        typeof acc !== 'object' || 
+                        !acc.type || 
+                        Object.keys(acc).length === 0;
+
+      if (isInvalid) {
+        // Delete the key entirely so it's not sent to Discord
         delete safeC.accessory;
       }
     }
@@ -191,7 +199,7 @@ function thumbnail(url) {
 
 /**
  * Sends a Components V2 message via REST API
- * * Automatically sanitizes invalid accessories before sending.
+ * Automatically sanitizes invalid accessories before sending.
  */
 async function sendComponentsV2Message(client, channelId, payload) {
   if (!client || !channelId) {
@@ -200,7 +208,7 @@ async function sendComponentsV2Message(client, channelId, payload) {
   
   const rest = client.rest || new REST({ version: '10' }).setToken(client.token);
   
-  // Prepare safe payload
+  // Prepare safe payload by creating a shallow copy and cleaning components
   const safePayload = { ...payload };
   if (safePayload.components) {
     safePayload.components = cleanComponents(safePayload.components);
@@ -219,13 +227,15 @@ async function sendComponentsV2Message(client, channelId, payload) {
     return await rest.post(Routes.channelMessages(channelId), { body });
   } catch (error) {
     console.error('Error sending Components V2 message:', error);
+    // Log the failed payload to help debugging
+    console.error('Failed Payload:', JSON.stringify(body, null, 2));
     throw error;
   }
 }
 
 /**
  * Replies to an interaction with a Components V2 message
- * * Automatically sanitizes invalid accessories before sending.
+ * Automatically sanitizes invalid accessories before sending.
  */
 async function replyComponentsV2(interaction, payload) {
   if (!interaction) {
@@ -255,13 +265,14 @@ async function replyComponentsV2(interaction, payload) {
     }
   } catch (error) {
     console.error('Error replying with Components V2:', error);
+    console.error('Failed Payload:', JSON.stringify(body, null, 2));
     throw error;
   }
 }
 
 /**
  * Edits a message with Components V2 content
- * * Automatically sanitizes invalid accessories before sending.
+ * Automatically sanitizes invalid accessories before sending.
  */
 async function editComponentsV2Message(message, payload) {
   if (!message) {
@@ -283,6 +294,7 @@ async function editComponentsV2Message(message, payload) {
     return await message.edit(body);
   } catch (error) {
     console.error('Error editing Components V2 message:', error);
+    console.error('Failed Payload:', JSON.stringify(body, null, 2));
     throw error;
   }
 }
