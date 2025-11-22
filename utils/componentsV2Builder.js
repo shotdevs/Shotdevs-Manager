@@ -7,6 +7,37 @@
 
 const { REST, Routes } = require('discord.js');
 
+// --- HELPER: Payload Sanitizer ---
+/**
+ * Recursively removes invalid accessories from components to prevent API 50035 errors.
+ * This ensures that if a raw config object is passed with empty accessories, they are stripped out.
+ */
+function cleanComponents(components) {
+  if (!Array.isArray(components)) return components;
+
+  return components.map(c => {
+    if (!c || typeof c !== 'object') return c;
+
+    // Create a shallow copy to avoid mutating the original reference permanently
+    const safeC = { ...c };
+
+    // 1. Recursively clean children (for Containers, Action Rows, etc.)
+    if (safeC.components && Array.isArray(safeC.components)) {
+      safeC.components = cleanComponents(safeC.components);
+    }
+
+    // 2. Check for invalid accessory (exists but has no type)
+    // This catches cases like accessory: {} which causes "BASE_TYPE_REQUIRED"
+    if (safeC.accessory) {
+      if (!safeC.accessory.type) {
+        delete safeC.accessory;
+      }
+    }
+
+    return safeC;
+  });
+}
+
 /**
  * Creates a Container component (type 17)
  * Containers are the top-level component that holds sections, separators, and action rows
@@ -20,13 +51,13 @@ function container({ accent_color = null, components }) {
     throw new Error('Container components must be an array');
   }
   
-  // Filter out any null or undefined components to prevent errors
-  const cleanComponents = components.filter(c => c !== null && c !== undefined);
+  // Filter out any null or undefined components
+  const cleanComponentsList = components.filter(c => c !== null && c !== undefined);
 
   return {
     type: 17,
     accent_color,
-    components: cleanComponents
+    components: cleanComponentsList
   };
 }
 
@@ -39,17 +70,13 @@ function container({ accent_color = null, components }) {
  * @returns {Object} Section component object
  */
 function section({ content = [], accessory = null }) {
-  // Convert content to array of text display components
   let components;
   
   if (typeof content === 'string') {
-    // Single string - convert to text display
     components = [textDisplay(content)];
   } else if (Array.isArray(content)) {
-    // Array - convert each item to text display
     components = content.map(c => typeof c === 'string' ? textDisplay(c) : c);
   } else if (content && typeof content === 'object') {
-    // Already a component object
     components = [content];
   } else {
     components = [];
@@ -57,9 +84,7 @@ function section({ content = [], accessory = null }) {
   
   const sec = { type: 9, components };
   
-  // FIX APPLIED HERE: 
-  // Only attach accessory if it exists AND has a 'type' property.
-  // This prevents sending empty objects {} which cause API 50035 errors.
+  // Safety check: Only attach accessory if it has a valid type
   if (accessory && accessory.type) {
     sec.accessory = accessory;
   }
@@ -70,12 +95,11 @@ function section({ content = [], accessory = null }) {
 /**
  * Creates a Text Display component (type 10)
  * Text displays show formatted text content with markdown support
- * * @param {string} content - Text content (supports markdown: bold, italic, headers, code, etc.)
+ * * @param {string} content - Text content
  * @returns {Object} Text Display component object
  */
 function textDisplay(content) {
   if (typeof content !== 'string' && typeof content !== 'number') {
-    // Fallback for null/undefined content to avoid crashes
     content = " "; 
   }
   
@@ -88,7 +112,7 @@ function textDisplay(content) {
 /**
  * Creates a Separator component (type 14)
  * Separators create visual dividers between sections
- * * @param {number} [spacing=1] - Spacing value (typically 1)
+ * * @param {number} [spacing=1] - Spacing value
  * @returns {Object} Separator component object
  */
 function separator(spacing = 1) {
@@ -101,21 +125,11 @@ function separator(spacing = 1) {
 
 /**
  * Creates a Button component (type 2)
- * Buttons can be interactive (with custom_id) or links (with url)
  * * @param {Object} options - Button options
- * @param {string} [options.custom_id] - Custom ID for interactive buttons
- * @param {string} [options.url] - URL for link buttons
- * @param {string} options.label - Button label text
- * @param {number} [options.style=2] - Button style (1=Primary, 2=Secondary, 3=Success, 4=Danger, 5=Link)
- * @param {boolean} [options.disabled=false] - Whether button is disabled
- * @param {Object|string} [options.emoji] - Button emoji (object or string)
  * @returns {Object} Button component object
  */
 function button({ custom_id, label, style = 2, url, disabled = false, emoji }) {
-  if (!label && !emoji) {
-     // Buttons must have at least a label or an emoji
-     label = "Button";
-  }
+  if (!label && !emoji) label = "Button";
   
   const btn = { type: 2, style };
   
@@ -123,18 +137,16 @@ function button({ custom_id, label, style = 2, url, disabled = false, emoji }) {
   
   if (url) {
     btn.url = url;
-    btn.style = 5; // Force link style if URL is present
+    btn.style = 5; 
   } else if (custom_id) {
     btn.custom_id = custom_id;
   } else {
-    // Fallback random ID if missing
     btn.custom_id = "btn_" + Math.random().toString(36).substring(7);
   }
   
   if (disabled) btn.disabled = true;
   
   if (emoji) {
-    // Handle emoji as string or object
     if (typeof emoji === 'string') {
       btn.emoji = { name: emoji };
     } else {
@@ -147,7 +159,6 @@ function button({ custom_id, label, style = 2, url, disabled = false, emoji }) {
 
 /**
  * Creates an Action Row component (type 1)
- * Action rows hold buttons and other interactive components
  * * @param {Array} components - Array of button components
  * @returns {Object} Action Row component object
  */
@@ -164,13 +175,12 @@ function actionRow(components) {
 
 /**
  * Creates a Thumbnail accessory (type 11)
- * Thumbnails are small images displayed alongside section content
  * * @param {string} url - Image URL
  * @returns {Object} Thumbnail accessory object
  */
 function thumbnail(url) {
   if (!url || typeof url !== 'string') {
-    return null; // Return null instead of throwing to allow safe usage in ternaries
+    return null; 
   }
   
   return {
@@ -181,33 +191,28 @@ function thumbnail(url) {
 
 /**
  * Sends a Components V2 message via REST API
- * This is required because Components V2 requires the IS_COMPONENTS_V2 flag
- * * @param {Object} client - Discord.js client instance
- * @param {string} channelId - Channel ID to send message to
- * @param {Object} payload - Message payload
- * @param {string} [payload.content] - Message text content
- * @param {Array} [payload.components] - Array of container components
- * @param {Array} [payload.files] - Array of file attachments
- * @param {boolean} [payload.ephemeral=false] - Whether message is ephemeral
- * @returns {Promise<Object>} Discord API response
+ * * Automatically sanitizes invalid accessories before sending.
  */
 async function sendComponentsV2Message(client, channelId, payload) {
   if (!client || !channelId) {
     throw new Error('Client and channelId are required');
   }
   
-  // Use client.rest if available, otherwise create new REST instance
   const rest = client.rest || new REST({ version: '10' }).setToken(client.token);
   
-  // Build the request body with IS_COMPONENTS_V2 flag
+  // Prepare safe payload
+  const safePayload = { ...payload };
+  if (safePayload.components) {
+    safePayload.components = cleanComponents(safePayload.components);
+  }
+  
   const body = {
-    flags: 1 << 15, // IS_COMPONENTS_V2 flag (32768)
-    ...payload
+    flags: 1 << 15, // IS_COMPONENTS_V2
+    ...safePayload
   };
   
-  // Add EPHEMERAL flag if specified
   if (payload.ephemeral) {
-    body.flags |= 1 << 6; // EPHEMERAL flag (64)
+    body.flags |= 1 << 6;
   }
   
   try {
@@ -220,33 +225,29 @@ async function sendComponentsV2Message(client, channelId, payload) {
 
 /**
  * Replies to an interaction with a Components V2 message
- * This helper wraps interaction.reply() with proper flags for Components V2
- * * @param {Object} interaction - Discord.js interaction object
- * @param {Object} payload - Reply payload
- * @param {string} [payload.content] - Message text content
- * @param {Array} [payload.components] - Array of container components
- * @param {Array} [payload.files] - Array of file attachments
- * @param {boolean} [payload.ephemeral=false] - Whether reply is ephemeral
- * @returns {Promise<Object>} Interaction reply response
+ * * Automatically sanitizes invalid accessories before sending.
  */
 async function replyComponentsV2(interaction, payload) {
   if (!interaction) {
     throw new Error('Interaction is required');
   }
   
-  // Build the reply payload with IS_COMPONENTS_V2 flag
+  // Prepare safe payload
+  const safePayload = { ...payload };
+  if (safePayload.components) {
+    safePayload.components = cleanComponents(safePayload.components);
+  }
+  
   const body = {
-    flags: 1 << 15, // IS_COMPONENTS_V2 flag (32768)
-    ...payload
+    flags: 1 << 15, // IS_COMPONENTS_V2
+    ...safePayload
   };
   
-  // Add EPHEMERAL flag if specified
   if (payload.ephemeral) {
-    body.flags |= 1 << 6; // EPHEMERAL flag (64)
+    body.flags |= 1 << 6;
   }
   
   try {
-    // Check if interaction is already replied or deferred
     if (interaction.deferred || interaction.replied) {
       return await interaction.editReply(body);
     } else {
@@ -260,20 +261,22 @@ async function replyComponentsV2(interaction, payload) {
 
 /**
  * Edits a message with Components V2 content
- * * @param {Object} message - Discord.js message object
- * @param {Object} payload - Edit payload
- * @param {string} [payload.content] - Message text content
- * @param {Array} [payload.components] - Array of container components
- * @returns {Promise<Object>} Edited message
+ * * Automatically sanitizes invalid accessories before sending.
  */
 async function editComponentsV2Message(message, payload) {
   if (!message) {
     throw new Error('Message is required');
   }
+
+  // Prepare safe payload
+  const safePayload = { ...payload };
+  if (safePayload.components) {
+    safePayload.components = cleanComponents(safePayload.components);
+  }
   
   const body = {
-    flags: 1 << 15, // IS_COMPONENTS_V2 flag (32768)
-    ...payload
+    flags: 1 << 15, // IS_COMPONENTS_V2
+    ...safePayload
   };
   
   try {
